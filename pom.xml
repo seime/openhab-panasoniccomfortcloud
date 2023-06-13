@@ -7,7 +7,7 @@
   <parent>
     <groupId>org.openhab.addons.bundles</groupId>
     <artifactId>org.openhab.addons.reactor.bundles</artifactId>
-    <version>3.4.3-SNAPSHOT</version>
+    <version>3.4.3</version>
   </parent>
 
   <version>3.4.0-SNAPSHOT</version>
@@ -21,7 +21,22 @@
       android.*;resolution:=optional,com.android.org.*;resolution:=optional,dalvik.*;resolution:=optional,javax.annotation.meta.*;resolution:=optional,org.apache.harmony.*;resolution:=optional,org.conscrypt.*;resolution:=optional,sun.security.*;resolution:=optional,org.apache.http.*;resolution:=optional
     </bnd.importpackage>
   </properties>
-
+  <repositories>
+    <repository>
+      <id>openhab-release</id>
+      <url>https://openhab.jfrog.io/artifactory/libs-release</url>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+    </repository>
+    <repository>
+      <id>openhab-snapshot</id>
+      <url>https://openhab.jfrog.io/artifactory/libs-snapshot</url>
+      <snapshots>
+        <enabled>true</enabled>
+      </snapshots>
+    </repository>
+  </repositories>
   <dependencies>
     <dependency>
       <groupId>org.openhab.osgiify</groupId>

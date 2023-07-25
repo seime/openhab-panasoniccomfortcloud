@@ -7,14 +7,14 @@
   <parent>
     <groupId>org.openhab.addons.bundles</groupId>
     <artifactId>org.openhab.addons.reactor.bundles</artifactId>
-    <version>3.4.3</version>
+    <version>4.0.0</version>
   </parent>
 
-  <version>3.4.0-SNAPSHOT</version>
+  <version>4.1.0-SNAPSHOT</version>
 
-  <artifactId>org.openhab.binding.panasoniccomfortcloud</artifactId>
+  <artifactId>no.seime.openhab.binding.panasoniccomfortcloud</artifactId>
 
-  <name>openHAB Add-ons :: Bundles :: Panasonic Comfort Cloud Binding</name>
+  <name>Seime Add-ons :: Bundles :: Panasonic Comfort Cloud Binding</name>
 
   <properties>
     <bnd.importpackage>
@@ -105,5 +105,12 @@
         </plugins>
       </build>
     </profile>
+    <profile>
+      <id>oh3</id>
+      <activation>
+        <activeByDefault>false</activeByDefault>
+      </activation>
+    </profile>
+
   </profiles>
 </project>

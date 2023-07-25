@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<features name="org.openhab.binding.panasoniccomfortcloud-${project.version}" xmlns="http://karaf.apache.org/xmlns/features/v1.4.0">
+<features name="no.seime.openhab.binding.panasoniccomfortcloud-${project.version}" xmlns="http://karaf.apache.org/xmlns/features/v1.4.0">
 	<repository>mvn:org.openhab.core.features.karaf/org.openhab.core.features.karaf.openhab-core/${ohc.version}/xml/features</repository>
 
 	<feature name="openhab-binding-panasoniccomfortcloud" description="Panasonic Comfort Cloud Binding" version="${project.version}">
@@ -9,6 +9,6 @@
 		<!-- <bundle dependency="true">mvn:org.openhab.osgiify/io.socket.socket.io-client/1.0.1</bundle>
 			<bundle dependency="true">mvn:org.openhab.osgiify/io.socket.engine.io-client/1.0.1</bundle> -->
 		<bundle dependency="true">mvn:org.json/json/20180813</bundle>
-		<bundle start-level="80">mvn:org.openhab.addons.bundles/org.openhab.binding.panasoniccomfortcloud/${project.version}</bundle>
+		<bundle start-level="80">mvn:org.openhab.addons.bundles/no.seime.openhab.binding.panasoniccomfortcloud/${project.version}</bundle>
 	</feature>
 </features>

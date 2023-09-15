@@ -93,6 +93,9 @@ public class ApiBridge {
         request.header("Accept", APPLICATION_JSON_CHARSET_UTF_8);
         request.header("Content-Type", APPLICATION_JSON_CHARSET_UTF_8);
         request.header("X-APP-TYPE", "1");
+        request.header("X-APP-TIMESTAMP", "1");
+        request.header("X-APP-NAME", "Comfort Cloud");
+        request.header("X-CFC-API-KEY", "Comfort Cloud");
         request.header("X-APP-VERSION", appVersion);
         if (storage.containsKey(ACCESS_TOKEN_KEY)) {
             request.header("X-User-Authorization", storage.get(ACCESS_TOKEN_KEY));

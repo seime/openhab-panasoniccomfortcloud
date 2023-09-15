@@ -28,9 +28,12 @@ public enum NanoeMode {
         this.value = value;
     }
 
-    public static NanoeMode parseValue(int value) {
+    public static NanoeMode parseValue(Integer value) {
+        if (value == null) {
+            return UNAVAILABLE;
+        }
         for (NanoeMode e : values()) {
-            if (e.value == value) {
+            if (e.value == value.intValue()) {
                 return e;
             }
         }

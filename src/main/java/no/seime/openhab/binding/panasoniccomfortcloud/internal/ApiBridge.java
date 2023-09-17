@@ -68,7 +68,8 @@ public class ApiBridge {
         HttpLoggingInterceptor logging = new HttpLoggingInterceptor(message -> logger.debug(message));
         logging.setLevel(HttpLoggingInterceptor.Level.BODY);
 
-        client = new OkHttpClient.Builder().readTimeout(1, TimeUnit.MINUTES).addInterceptor(logging).build();
+        client = new OkHttpClient.Builder().connectTimeout(20, TimeUnit.SECONDS).readTimeout(30, TimeUnit.SECONDS)
+                .addInterceptor(logging).build();
         gson = new GsonBuilder().setLenient().setPrettyPrinting().create();
     }
 
@@ -100,6 +101,7 @@ public class ApiBridge {
         if (storage.containsKey(ACCESS_TOKEN_KEY)) {
             request.header("X-User-Authorization", storage.get(ACCESS_TOKEN_KEY));
         }
+
         return request.build();
     }
 
@@ -159,7 +161,7 @@ public class ApiBridge {
                 throw new CommunicationException("Error sending request to server. Server responded with "
                         + response.code() + " and payload " + response.body().string());
             }
-        } catch (IOException e) {
+        } catch (Exception e) {
             throw new CommunicationException("General error communicating with service: " + e);
         }
     }

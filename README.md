@@ -59,6 +59,7 @@ and [report back](https://community.openhab.org/t/panasonic-comfort-cloud-bindin
 * CS-TZ35WKEW & CU-TZ35WKE
 * CS-TZ42WKEW
 * CS-Z20XKEW (multi-split)
+* CS-Z25TKEA
 * CS-Z25VKEW
 * CS-Z25XKEW (multi-split)
 * CS-Z35XKEW (multi-split)

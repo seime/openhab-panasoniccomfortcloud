@@ -12,7 +12,6 @@
  */
 package no.seime.openhab.binding.panasoniccomfortcloud.internal;
 
-import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.concurrent.TimeUnit;
 

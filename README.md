@@ -23,7 +23,8 @@ See full example below for how to configure using thing files.
 * `username` = Same as you use in the mobile app (_mandatory_)
 * `password` = Same as you use in the mobile app (_mandatory_)
 * `appVersion` = The version of your Panasonic Comfort Cloud mobile app. You can find this information in the
-  application section of your phone (_mandatory_ with default value). Current default appVersion is `1.17.0`.
+  application section of your phone (_mandatory_ with default value). Current default appVersion is `1.20.0` as of May
+  3rd 2024.
 * `refreshInterval` = Number of seconds between refresh calls to the server (_optional_)
 
 NOTE: If your account refuses to go online with error message `New app version published - check the version number of

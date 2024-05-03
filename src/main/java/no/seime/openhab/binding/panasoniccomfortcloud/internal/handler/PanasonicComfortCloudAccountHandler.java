@@ -51,19 +51,21 @@ import no.seime.openhab.binding.panasoniccomfortcloud.internal.model.GroupModel;
 @NonNullByDefault
 public class PanasonicComfortCloudAccountHandler extends BaseBridgeHandler {
     private static final int MIN_TIME_BETWEEEN_MODEL_UPDATES = 30;
+    public static final int MAX_RETRIES_BEFORE_GIVING_UP = 10;
     private final Logger logger = LoggerFactory.getLogger(PanasonicComfortCloudAccountHandler.class);
     private Optional<ScheduledFuture<?>> statusFuture = Optional.empty();
     private GroupModel model;
     @NonNullByDefault({})
     AccountConfiguration config;
     private ApiBridge apiBridge;
+    private int errorCounter = 0;
 
     private static final String STORAGE_KEY = "PanasonicComfortCloud-Storage";
 
     public PanasonicComfortCloudAccountHandler(final Bridge bridge, StorageService storageService) {
         super(bridge);
-        this.apiBridge = new ApiBridge(storageService.getStorage(STORAGE_KEY));
-        this.model = new GroupModel(0);
+        apiBridge = new ApiBridge(storageService.getStorage(STORAGE_KEY));
+        model = new GroupModel(0);
     }
 
     @Override
@@ -145,7 +147,9 @@ public class PanasonicComfortCloudAccountHandler extends BaseBridgeHandler {
             if (triggerDeviceUpdate) {
                 try {
                     getThing().getThings().parallelStream()
-                            .filter(e -> e.isEnabled() && e.getStatus() == ThingStatus.ONLINE).forEach(e -> {
+                            .filter(e -> e.isEnabled()
+                                    && (e.getStatus() == ThingStatus.ONLINE || e.getStatus() == ThingStatus.OFFLINE))
+                            .forEach(e -> {
                                 try {
                                     ((PanasonicComfortCloudBaseThingHandler) e.getHandler()).loadFromServer();
                                 } catch (Exception ex) {
@@ -166,9 +170,20 @@ public class PanasonicComfortCloudAccountHandler extends BaseBridgeHandler {
             stopScheduledUpdate();
         } catch (final PanasonicComfortCloudException e) {
             logger.info("Error initializing data: {}", e.getMessage());
-            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
-                    "Error fetching data: " + e.getMessage());
             model.clear();
+            errorCounter++;
+
+            int retryDelay = 60 * (errorCounter * errorCounter);
+            // Try init again
+            if (errorCounter < MAX_RETRIES_BEFORE_GIVING_UP) {
+                logger.info("Will try to re-init in {} seconds", retryDelay);
+                statusFuture = Optional.of(scheduler.schedule(this::initialize, retryDelay, TimeUnit.SECONDS));
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                        "Error fetching data: " + e.getMessage() + ", will retry in " + retryDelay + " seconds");
+            } else {
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                        "Error fetching data: " + e.getMessage() + ", not retrying due to too many errors");
+            }
         }
     }
 

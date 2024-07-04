@@ -29,8 +29,7 @@ public class AccountConfiguration extends Configuration {
     @Nullable
     public String password;
 
-    @Nullable
-    public String appVersion;
+    public String appVersion = "1.21.0";
 
     public int refreshInterval = 120;
 

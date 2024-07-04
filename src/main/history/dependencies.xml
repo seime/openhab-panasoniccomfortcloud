@@ -9,10 +9,12 @@
         <bundle>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.okio/1.13.0_1</bundle>
         <bundle>mvn:org.json/json/20180813</bundle>
         <bundle>mvn:org.json/json/20180813</bundle>
+        <bundle>mvn:org.jsoup/jsoup/1.17.2</bundle>
         <bundle>mvn:org.openhab.addons.bundles/no.seime.openhab.binding.panasoniccomfortcloud/4.1.0-SNAPSHOT</bundle>
         <bundle>mvn:org.openhab.osgiify/io.socket.engine.io-client/1.0.1</bundle>
         <bundle>mvn:org.openhab.osgiify/io.socket.socket.io-client/1.0.1</bundle>
         <bundle>wrap:mvn:com.squareup.okio/okio/1.13.0</bundle>
+        <bundle>wrap:mvn:org.jspecify/jspecify/0.3.0</bundle>
         <bundle>wrap:mvn:org.lastnpe.eea/eea-all/2.2.1</bundle>
     </feature>
 </features>

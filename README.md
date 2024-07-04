@@ -2,6 +2,9 @@
 
 This binding integrates Panasonic Comfort Cloud air conditioners.
 
+[<img src="https://github.com/seime/support-me/blob/main/beer_me.png" width=150>](https://buymeacoffee.com/arnes)
+
+
 ## Supported Things
 
 This binding supports Panasonic Air Conditioners/heat pumps that are connected to the internet via WiFi _and_ can be

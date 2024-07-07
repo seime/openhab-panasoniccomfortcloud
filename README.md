@@ -27,14 +27,11 @@ See full example below for how to configure using thing files.
 
 * `username` = Same as you use in the mobile app (_mandatory_)
 * `password` = Same as you use in the mobile app (_mandatory_)
-* `appVersion` = The version of your Panasonic Comfort Cloud mobile app. You can find this information in the
-  application section of your phone (_mandatory_ with default value). Current default appVersion is `1.20.0` as of May
-  3rd 2024.
-* `refreshInterval` = Number of seconds between refresh calls to the server (_optional_)
 
-NOTE: If your account refuses to go online with error message `New app version published - check the version number of
-your mobile app and enter the value as account config parameter (currently using <current version>)`, update
-the `appVersion` config field. This _may_ work if the API has not changed too much.
+*Advanced configuration:*
+
+* `appVersion` = Override the automatically fetched latest (mobile) app version. Only use if automatic failure occurs.
+* `refreshInterval` = Number of seconds between refresh calls to the server (_optional_)
 
 ### aircondition
 
@@ -105,7 +102,7 @@ Some channels are still missing like iAutoX and ecoNavi. If you have a device th
 panasoniccomfortcloud.things:
 
 ```
-Bridge panasoniccomfortcloud:account:accountName "Panasonic Comfort Cloud account" [ username="XXX@XXX.COM", password="XXXXXXX", refreshInterval="120", appVersion="Defaults to 1.17.0, check current mobile app version and bump to this if trouble" ] {
+Bridge panasoniccomfortcloud:account:accountName "Panasonic Comfort Cloud account" [ username="XXX@XXX.COM", password="XXXXXXX", refreshInterval="120", appVersion="1.21.0" // Optional ] {
   Thing aircondition bedroom1 "AC Bedroom" [ deviceId="CS-TZ25WKEW+XXXXXXXX" ]
 }
 ```

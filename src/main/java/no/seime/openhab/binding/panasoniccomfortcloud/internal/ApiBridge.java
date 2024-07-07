@@ -50,12 +50,16 @@ import okhttp3.logging.HttpLoggingInterceptor;
  * @author Arne Seime - Initial contribution
  */
 public class ApiBridge {
+    public static final String APPLICATION_JSON_CHARSET_UTF_8 = "application/json; charset=utf-8";
+    public static final MediaType JSON = MediaType.parse(APPLICATION_JSON_CHARSET_UTF_8);
+
     private static final String APP_CLIENT_ID = "Xmy6xIYIitMxngjB2rHvlm6HSDNnaMJx";
     private static final String AUTH_0_CLIENT = "eyJuYW1lIjoiQXV0aDAuQW5kcm9pZCIsImVudiI6eyJhbmRyb2lkIjoiMzAifSwidmVyc2lvbiI6IjIuOS4zIn0=";
     private static final String REDIRECT_URI = "panasonic-iot-cfc://authglb.digital.panasonic.com/android/com.panasonic.ACCsmart/callback";
     private static final String BASE_PATH_AUTH = "https://authglb.digital.panasonic.com";
     private static final String BASE_PATH_ACC = "https://accsmart.panasonic.com";
     private static final String APPBRAIN_URL = "https://www.appbrain.com/app/panasonic-comfort-cloud/com.panasonic.ACCsmart";
+    private static final String DEFAULT_APP_VERSION = "1.21.0";
 
     private static final String ACCESS_TOKEN_KEY = "accessToken";
     private static final String REFRESH_TOKEN_KEY = "refreshToken";
@@ -67,19 +71,13 @@ public class ApiBridge {
 
     private final Logger logger = LoggerFactory.getLogger(ApiBridge.class);
 
+    private String clientId;
     private String username;
     private String password;
-
     private String appVersion;
-
     private Gson gson;
-
     private OkHttpClient client;
-
     private Storage<String> storage;
-
-    public static final String APPLICATION_JSON_CHARSET_UTF_8 = "application/json; charset=utf-8";
-    public static final MediaType JSON = MediaType.parse(APPLICATION_JSON_CHARSET_UTF_8);
 
     public ApiBridge(Storage<String> storage) {
         this.storage = storage;
@@ -109,13 +107,58 @@ public class ApiBridge {
         gson = new GsonBuilder().setLenient().setPrettyPrinting().create();
     }
 
-    public void init(String username, String password, String appVersion) {
-        this.username = username;
-        this.password = password;
-        this.appVersion = appVersion;
+    private static @NonNull Map<String, String> parseCookies(Response redirectResponse) {
+        Map<String, String> cookies = new HashMap<>();
+
+        for (String header : redirectResponse.headers("Set-Cookie")) {
+            Cookie cookie = Cookie.parse(HttpUrl.parse("https://www.example.com/"), header);
+            cookies.put(cookie.name(), cookie.value());
+
+        }
+        return cookies;
     }
 
-    String clientId;
+    public static String generateRandomStringHex(int bitLength) {
+        StringBuilder b = new StringBuilder();
+        for (int i = 0; i < bitLength; i++) {
+            b.append(Integer.toHexString((int) (Math.random() * 16)));
+        }
+
+        return b.toString();
+    }
+
+    public static String generateHash(String codeVerifier) throws NoSuchAlgorithmException {
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        byte[] encodedhash = digest.digest(codeVerifier.getBytes(StandardCharsets.UTF_8));
+        return Base64.getUrlEncoder().encodeToString(encodedhash).replace("=", "");
+    }
+
+    public static String generateRandomString(int length) {
+        StringBuilder b = new StringBuilder();
+        for (int i = 0; i < length; i++) {
+            b.append((char) (Math.random() * 26 + 'a'));
+        }
+
+        return b.toString();
+    }
+
+    public void init(String username, String password, String configuredAppVersion) {
+        this.username = username;
+        this.password = password;
+
+        if (configuredAppVersion == null) {
+            logger.debug("No configured appVersion in thing configuration, trying to fetch from AppBrain website");
+            appVersion = getAppVersion();
+            if (appVersion == null) {
+                logger.info(
+                        "Could not fetch appVersion dynamically, and no value is provided on the bridge thing. Defaulting to  {}",
+                        DEFAULT_APP_VERSION);
+                appVersion = DEFAULT_APP_VERSION;
+            }
+        } else {
+            appVersion = configuredAppVersion;
+        }
+    }
 
     private Request buildRequest(Token token, final AbstractRequest req) {
 
@@ -167,7 +210,7 @@ public class ApiBridge {
             return token;
         } catch (Exception e) {
             clearToken();
-            throw new CommunicationException("Error obtaining access token - check credentials", e);
+            throw new CommunicationException("Error obtaining access token - check credentials and appVersion", e);
         }
     }
 
@@ -339,8 +382,19 @@ public class ApiBridge {
         Response getAccClientResponse = client.newCall(getAccClientIdRequest).execute();
 
         if (getAccClientResponse.code() != 200) {
-            throw new CommunicationException("Get clientId request failed with code " + getAccClientResponse.code()
-                    + ". Check credentials and appVersion");
+
+            final JsonObject o = JsonParser.parseString(getAccClientResponse.body().string()).getAsJsonObject();
+            int errorCode = o.has("code") ? o.get("code").getAsInt() : -1;
+            String errorMessage = o.has("message") ? o.get("message").getAsString() : "<not provided>";
+
+            if (errorCode == ERROR_CODE_UPDATE_VERSION) {
+                throw new CommunicationException(String.format(
+                        "New app version published - check the version number of your mobile app and enter the value as account config parameter (currently using %s)",
+                        appVersion));
+            } else {
+                throw new CommunicationException("Get clientId request failed with code " + getAccClientResponse.code()
+                        + " and message " + errorMessage + ". Check credentials and appVersion");
+            }
         }
 
         String bodyString = getAccClientResponse.body().string();
@@ -383,39 +437,29 @@ public class ApiBridge {
         return refreshedToken;
     }
 
-    private static @NonNull Map<String, String> parseCookies(Response redirectResponse) {
-        Map<String, String> cookies = new HashMap<>();
+    private String getAppVersion() {
+        try {
+            Request req = new Request.Builder().url(APPBRAIN_URL).get().build();
+            Response rsp = client.newCall(req).execute();
 
-        for (String header : redirectResponse.headers("Set-Cookie")) {
-            Cookie cookie = Cookie.parse(HttpUrl.parse("https://www.example.com/"), header);
-            cookies.put(cookie.name(), cookie.value());
+            String body = rsp.body().string();
+            return parseAppBrainAppVersion(body);
 
+        } catch (Exception e) {
+            logger.warn("Exception getting appVersion", e);
         }
-        return cookies;
+        return null;
     }
 
-    public static String generateRandomStringHex(int bitLength) {
-        StringBuilder b = new StringBuilder();
-        for (int i = 0; i < bitLength; i++) {
-            b.append(Integer.toHexString((int) (Math.random() * 16)));
+    public String parseAppBrainAppVersion(String body) {
+        Document doc = Jsoup.parse(body);
+        Elements elements = doc.selectXpath("//meta[@itemprop='softwareVersion']");
+
+        if (elements.size() == 1) {
+            return elements.get(0).attr("content");
         }
 
-        return b.toString();
-    }
-
-    public static String generateHash(String codeVerifier) throws NoSuchAlgorithmException {
-        MessageDigest digest = MessageDigest.getInstance("SHA-256");
-        byte[] encodedhash = digest.digest(codeVerifier.getBytes(StandardCharsets.UTF_8));
-        return Base64.getUrlEncoder().encodeToString(encodedhash).replace("=", "");
-    }
-
-    public static String generateRandomString(int length) {
-        StringBuilder b = new StringBuilder();
-        for (int i = 0; i < length; i++) {
-            b.append((char) (Math.random() * 26 + 'a'));
-        }
-
-        return b.toString();
+        return null;
     }
 
     public <T> T sendRequestInternal(final Request request, final AbstractRequest req, final Type responseType)
@@ -456,6 +500,42 @@ public class ApiBridge {
         } catch (Exception e) {
             throw new CommunicationException("General error communicating with service: " + e);
         }
+    }
+
+    @Nullable
+    private Token getStoredToken() {
+        String accessToken = storage.get(ACCESS_TOKEN_KEY);
+        String refreshToken = storage.get(REFRESH_TOKEN_KEY);
+        String clientId = storage.get(CLIENT_ID_KEY);
+        String tokenExpiryString = storage.get(TOKEN_EXPIRY_KEY);
+        if (tokenExpiryString == null) {
+            tokenExpiryString = Instant.now().minus(1, ChronoUnit.MINUTES).getEpochSecond() + ""; // Expired, but should
+                                                                                                  // not happen
+        }
+        long tokenExpiry = Long.parseLong(tokenExpiryString);
+        String scope = storage.get(SCOPE_KEY);
+
+        if (accessToken == null || refreshToken == null || clientId == null || scope == null) {
+            return null;
+        }
+
+        return new Token(accessToken, refreshToken, clientId, tokenExpiry, scope);
+    }
+
+    private void storeToken(Token token) {
+        storage.put(ACCESS_TOKEN_KEY, token.getAccessToken());
+        storage.put(REFRESH_TOKEN_KEY, token.getRefreshToken());
+        storage.put(CLIENT_ID_KEY, token.getClientId());
+        storage.put(TOKEN_EXPIRY_KEY, String.valueOf(token.getTokenExpiry()));
+        storage.put(SCOPE_KEY, token.getScope());
+    }
+
+    private void clearToken() {
+        storage.remove(ACCESS_TOKEN_KEY);
+        storage.remove(REFRESH_TOKEN_KEY);
+        storage.remove(CLIENT_ID_KEY);
+        storage.remove(TOKEN_EXPIRY_KEY);
+        storage.remove(SCOPE_KEY);
     }
 
     private static class Token {
@@ -500,41 +580,5 @@ public class ApiBridge {
         public boolean isExpired() {
             return tokenExpiry < Instant.now().getEpochSecond();
         }
-    }
-
-    @Nullable
-    private Token getStoredToken() {
-        String accessToken = storage.get(ACCESS_TOKEN_KEY);
-        String refreshToken = storage.get(REFRESH_TOKEN_KEY);
-        String clientId = storage.get(CLIENT_ID_KEY);
-        String tokenExpiryString = storage.get(TOKEN_EXPIRY_KEY);
-        if (tokenExpiryString == null) {
-            tokenExpiryString = Instant.now().minus(1, ChronoUnit.MINUTES).getEpochSecond() + ""; // Expired, but should
-                                                                                                  // not happen
-        }
-        long tokenExpiry = Long.parseLong(tokenExpiryString);
-        String scope = storage.get(SCOPE_KEY);
-
-        if (accessToken == null || refreshToken == null || clientId == null || scope == null) {
-            return null;
-        }
-
-        return new Token(accessToken, refreshToken, clientId, tokenExpiry, scope);
-    }
-
-    private void storeToken(Token token) {
-        storage.put(ACCESS_TOKEN_KEY, token.getAccessToken());
-        storage.put(REFRESH_TOKEN_KEY, token.getRefreshToken());
-        storage.put(CLIENT_ID_KEY, token.getClientId());
-        storage.put(TOKEN_EXPIRY_KEY, String.valueOf(token.getTokenExpiry()));
-        storage.put(SCOPE_KEY, token.getScope());
-    }
-
-    private void clearToken() {
-        storage.remove(ACCESS_TOKEN_KEY);
-        storage.remove(REFRESH_TOKEN_KEY);
-        storage.remove(CLIENT_ID_KEY);
-        storage.remove(TOKEN_EXPIRY_KEY);
-        storage.remove(SCOPE_KEY);
     }
 }

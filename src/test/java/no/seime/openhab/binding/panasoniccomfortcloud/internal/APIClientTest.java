@@ -2,6 +2,8 @@ package no.seime.openhab.binding.panasoniccomfortcloud.internal;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.security.NoSuchAlgorithmException;
 
 import org.junit.jupiter.api.Test;
@@ -25,10 +27,10 @@ public class APIClientTest {
     public void test() throws PanasonicComfortCloudException {
         ApiBridge apiBridge = new ApiBridge(storage);
 
-        String username = "FILL IN USERNAME TO TEST";
-        String password = "FILL IN PASSWORD TO TEST";
+        String username = "EMAIL USERNAME";
+        String password = "PASSWORD";
 
-        apiBridge.init(username, password, "1.20.0");
+        apiBridge.init(username, password, null);
         apiBridge.sendRequest(new GetGroupsRequest(), new TypeToken<GetGroupsResponse>() {
         }.getType());
     }
@@ -51,5 +53,15 @@ public class APIClientTest {
                 .length();
         String random = ApiBridge.generateRandomStringHex(length);
         assertEquals(length, random.length());
+    }
+
+    @Test
+    public void testParseAppBrain() throws IOException {
+        InputStream is = getClass().getResourceAsStream("/appbrain_index.html");
+        String html = new String(is.readAllBytes());
+
+        ApiBridge apiBridge = new ApiBridge(storage);
+        String appVersion = apiBridge.parseAppBrainAppVersion(html);
+        assertEquals("1.21.0", appVersion);
     }
 }

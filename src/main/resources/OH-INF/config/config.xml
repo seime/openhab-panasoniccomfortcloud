@@ -17,10 +17,10 @@ https://openhab.org/schemas/config-description-1.0.0.xsd">
 		</parameter>
 		<parameter name="appVersion" type="text" required="false">
 			<label>App version</label>
-			<description>Your Panasonic Comfort Cloud app version code, ie '1.21.0'. You can find this information in the apps
-				section of your mobile phone. If no value provided, it will use the current binding default.
+			<description>Your Panasonic Comfort Cloud app version code. Only fill in if the binding is unable to fetch the latest
+				version automatically - OR if you want to simulate a different app version.
 			</description>
-			<default>1.21.0</default>
+			<advanced>true</advanced>
 		</parameter>
 
 		<parameter name="refreshInterval" type="integer" min="30" unit="s">

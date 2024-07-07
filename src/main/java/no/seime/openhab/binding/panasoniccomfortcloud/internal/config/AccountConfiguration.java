@@ -12,8 +12,6 @@
  */
 package no.seime.openhab.binding.panasoniccomfortcloud.internal.config;
 
-import org.eclipse.jdt.annotation.NonNullByDefault;
-import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.core.config.core.Configuration;
 
 /**
@@ -21,16 +19,11 @@ import org.openhab.core.config.core.Configuration;
  *
  * @author Arne Seime - Initial contribution
  */
-@NonNullByDefault
 public class AccountConfiguration extends Configuration {
 
-    @Nullable
     public String username;
-    @Nullable
     public String password;
-
-    public String appVersion = "1.21.0";
-
+    public String appVersion = null;
     public int refreshInterval = 120;
 
     @Override

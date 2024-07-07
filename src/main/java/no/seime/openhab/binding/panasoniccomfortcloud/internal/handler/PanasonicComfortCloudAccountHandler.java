@@ -17,6 +17,7 @@ import java.util.Optional;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.commons.lang3.StringUtils;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.openhab.core.storage.StorageService;
 import org.openhab.core.thing.Bridge;
@@ -81,7 +82,7 @@ public class PanasonicComfortCloudAccountHandler extends BaseBridgeHandler {
         updateStatus(ThingStatus.UNKNOWN);
         AccountConfiguration loadedConfig = getConfigAs(AccountConfiguration.class);
         config = loadedConfig;
-        apiBridge.init(loadedConfig.username, loadedConfig.password, loadedConfig.appVersion);
+        apiBridge.init(loadedConfig.username, loadedConfig.password, StringUtils.trimToNull(loadedConfig.appVersion));
         int refreshInterval = config.refreshInterval;
         if (refreshInterval < MIN_TIME_BETWEEEN_MODEL_UPDATES) {
             logger.warn("Refresh interval too short, setting minimum value of {}", MIN_TIME_BETWEEEN_MODEL_UPDATES);

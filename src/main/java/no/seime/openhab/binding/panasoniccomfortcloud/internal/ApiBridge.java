@@ -14,6 +14,10 @@ package no.seime.openhab.binding.panasoniccomfortcloud.internal;
 
 import java.io.IOException;
 import java.lang.reflect.Type;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -154,6 +158,8 @@ public class ApiBridge {
                         "Could not fetch appVersion dynamically, and no value is provided on the bridge thing. Defaulting to  {}",
                         DEFAULT_APP_VERSION);
                 appVersion = DEFAULT_APP_VERSION;
+            } else {
+                logger.debug("Fetched appVersion from AppBrain: {}", appVersion);
             }
         } else {
             appVersion = configuredAppVersion;
@@ -439,10 +445,15 @@ public class ApiBridge {
 
     private String getAppVersion() {
         try {
-            Request req = new Request.Builder().url(APPBRAIN_URL).get().build();
-            Response rsp = client.newCall(req).execute();
 
-            String body = rsp.body().string();
+            HttpRequest request = HttpRequest.newBuilder().uri(new URI(APPBRAIN_URL)).headers("User-Agent",
+                    "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Mobile Safari/537.36")
+                    .GET().build();
+
+            HttpClient httpClient = HttpClient.newHttpClient();
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+            String body = response.body();
             return parseAppBrainAppVersion(body);
 
         } catch (Exception e) {

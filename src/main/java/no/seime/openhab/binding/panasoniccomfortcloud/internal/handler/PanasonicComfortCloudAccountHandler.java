@@ -176,14 +176,17 @@ public class PanasonicComfortCloudAccountHandler extends BaseBridgeHandler {
 
             int retryDelay = 60 * (errorCounter * errorCounter);
             // Try init again
-            if (errorCounter < MAX_RETRIES_BEFORE_GIVING_UP) {
-                logger.info("Will try to re-init in {} seconds", retryDelay);
+            if (errorCounter <= MAX_RETRIES_BEFORE_GIVING_UP) {
+                logger.info("Will try to re-init in {} seconds. Attempt {} of {}", retryDelay, errorCounter,
+                        MAX_RETRIES_BEFORE_GIVING_UP);
                 statusFuture = Optional.of(scheduler.schedule(this::initialize, retryDelay, TimeUnit.SECONDS));
                 updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                         "Error fetching data: " + e.getMessage() + ", will retry in " + retryDelay + " seconds");
             } else {
+                logger.info("Too many communication errors, giving up");
                 updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                         "Error fetching data: " + e.getMessage() + ", not retrying due to too many errors");
+                errorCounter = 0;
             }
         }
     }

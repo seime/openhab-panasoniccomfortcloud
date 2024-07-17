@@ -13,20 +13,10 @@
 
 package no.seime.openhab.binding.panasoniccomfortcloud.internal.handler;
 
-import static no.seime.openhab.binding.panasoniccomfortcloud.internal.BindingConstants.CHANNEL_ACTUAL_NANOE;
-import static no.seime.openhab.binding.panasoniccomfortcloud.internal.BindingConstants.CHANNEL_AIR_SWING_AUTO_MODE;
-import static no.seime.openhab.binding.panasoniccomfortcloud.internal.BindingConstants.CHANNEL_AIR_SWING_HORIZONTAL;
-import static no.seime.openhab.binding.panasoniccomfortcloud.internal.BindingConstants.CHANNEL_AIR_SWING_VERTICAL;
-import static no.seime.openhab.binding.panasoniccomfortcloud.internal.BindingConstants.CHANNEL_CURRENT_INDOOR_TEMPERATURE;
-import static no.seime.openhab.binding.panasoniccomfortcloud.internal.BindingConstants.CHANNEL_CURRENT_OUTDOOR_TEMPERATURE;
-import static no.seime.openhab.binding.panasoniccomfortcloud.internal.BindingConstants.CHANNEL_ECO_MODE;
-import static no.seime.openhab.binding.panasoniccomfortcloud.internal.BindingConstants.CHANNEL_FAN_SPEED;
-import static no.seime.openhab.binding.panasoniccomfortcloud.internal.BindingConstants.CHANNEL_MASTER_SWITCH;
-import static no.seime.openhab.binding.panasoniccomfortcloud.internal.BindingConstants.CHANNEL_NANOE;
-import static no.seime.openhab.binding.panasoniccomfortcloud.internal.BindingConstants.CHANNEL_OPERATION_MODE;
-import static no.seime.openhab.binding.panasoniccomfortcloud.internal.BindingConstants.CHANNEL_TARGET_TEMPERATURE;
+import static no.seime.openhab.binding.panasoniccomfortcloud.internal.BindingConstants.*;
 
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 import javax.measure.quantity.Temperature;
 
@@ -34,11 +24,7 @@ import org.openhab.core.library.types.DecimalType;
 import org.openhab.core.library.types.OnOffType;
 import org.openhab.core.library.types.QuantityType;
 import org.openhab.core.library.types.StringType;
-import org.openhab.core.thing.ChannelUID;
-import org.openhab.core.thing.Thing;
-import org.openhab.core.thing.ThingStatus;
-import org.openhab.core.thing.ThingStatusDetail;
-import org.openhab.core.thing.ThingStatusInfo;
+import org.openhab.core.thing.*;
 import org.openhab.core.types.Command;
 import org.openhab.core.types.RefreshType;
 import org.openhab.core.types.State;
@@ -50,15 +36,7 @@ import no.seime.openhab.binding.panasoniccomfortcloud.internal.PanasonicComfortC
 import no.seime.openhab.binding.panasoniccomfortcloud.internal.config.AirConditionerConfiguration;
 import no.seime.openhab.binding.panasoniccomfortcloud.internal.dto.SetDevicePropertiesRequest;
 import no.seime.openhab.binding.panasoniccomfortcloud.internal.dto.SetDevicePropertiesResponse;
-import no.seime.openhab.binding.panasoniccomfortcloud.internal.model.AirSwingAutoMode;
-import no.seime.openhab.binding.panasoniccomfortcloud.internal.model.AirSwingSideways;
-import no.seime.openhab.binding.panasoniccomfortcloud.internal.model.AirSwingUpDown;
-import no.seime.openhab.binding.panasoniccomfortcloud.internal.model.Device;
-import no.seime.openhab.binding.panasoniccomfortcloud.internal.model.EcoMode;
-import no.seime.openhab.binding.panasoniccomfortcloud.internal.model.FanSpeed;
-import no.seime.openhab.binding.panasoniccomfortcloud.internal.model.NanoeMode;
-import no.seime.openhab.binding.panasoniccomfortcloud.internal.model.OperationMode;
-import no.seime.openhab.binding.panasoniccomfortcloud.internal.model.Parameters;
+import no.seime.openhab.binding.panasoniccomfortcloud.internal.model.*;
 
 /**
  * The {@link PanasonicComfortCloudAccountHandler} is responsible for handling commands, which are
@@ -85,7 +63,7 @@ public class PanasonicComfortCloudAirconditionHandler extends PanasonicComfortCl
         updateStatus(ThingStatus.UNKNOWN);
         logger.debug("Initializing air conditioner using config {}", config);
         super.initialize(config.deviceId);
-        loadIfDevicePresent();
+        scheduler.schedule(this::loadIfDevicePresent, 3, TimeUnit.SECONDS);
     }
 
     private void loadIfDevicePresent() {
@@ -101,8 +79,8 @@ public class PanasonicComfortCloudAirconditionHandler extends PanasonicComfortCl
     @Override
     public void bridgeStatusChanged(ThingStatusInfo bridgeStatusInfo) {
         super.bridgeStatusChanged(bridgeStatusInfo);
-        if (bridgeStatusInfo.getStatus() == ThingStatus.ONLINE) {
-            loadIfDevicePresent();
+        if (bridgeStatusInfo.getStatus() != ThingStatus.ONLINE) {
+            getThing().getChannels().forEach(channel -> updateState(channel.getUID(), UnDefType.UNDEF));
         }
     }
 

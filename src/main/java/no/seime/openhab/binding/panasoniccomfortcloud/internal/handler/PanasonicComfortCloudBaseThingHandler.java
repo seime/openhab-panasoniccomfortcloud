@@ -84,6 +84,12 @@ public abstract class PanasonicComfortCloudBaseThingHandler extends BaseThingHan
     }
 
     @Override
+    public void dispose() {
+        getThing().getChannels().forEach(channel -> updateState(channel.getUID(), UnDefType.UNDEF));
+        super.dispose();
+    }
+
+    @Override
     public void handleCommand(final ChannelUID channelUID, final Command command) {
         Optional<Device> device = accountHandler.getModel().findDeviceByDeviceId(deviceId);
         if (device.isPresent()) {

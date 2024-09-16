@@ -165,13 +165,15 @@ public class PanasonicComfortCloudAccountHandler extends BaseBridgeHandler {
             }
         } catch (final ConfigurationException e) {
             logger.info("Error initializing Panasonic Comfort Cloud data: {}", e.getMessage());
+            stopScheduledUpdate();
+            model.clear();
             updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                     "Error fetching data: " + e.getMessage());
-            model.clear();
-            stopScheduledUpdate();
         } catch (final PanasonicComfortCloudException e) {
             logger.info("Error initializing data: {}", e.getMessage());
+            stopScheduledUpdate();
             model.clear();
+
             errorCounter++;
 
             int retryDelay = 60 * (errorCounter * errorCounter);

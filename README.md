@@ -1,6 +1,7 @@
 # Panasonic Comfort Cloud Binding
 
-This binding integrates Panasonic Comfort Cloud air conditioners.
+This binding integrates most Panasonic Comfort Cloud air conditioners. It should work with any model supported by the Panasonic Comfort Cloud mobile app. 
+It does *not* support the Aquarea line.
 
 [<img src="https://github.com/seime/support-me/blob/main/openHAB_workswith.png" width=300>](https://www.openhab.org)
 
@@ -49,7 +50,7 @@ requirements. In order to find the _correct_ deviceId to use in thing files, _ch
 
 ## Tested devices
 
-The following devices have been *tested* by users and found to be working. Currently no devices are *not* known to work.
+The following devices have been *tested* by users and found to be working. Currently no devices are *not* known to work (except for the Aquarea line that has a different API).
 
 If your device is *not* listed, please test
 and [report back](https://community.openhab.org/t/panasonic-comfort-cloud-binding/133848) so I can add it to the list.
@@ -64,6 +65,8 @@ and [report back](https://community.openhab.org/t/panasonic-comfort-cloud-bindin
 * CS-Z20XKEW (multi-split)
 * CS-Z25TKEA
 * CS-Z25VKEW
+* CS-Z35ZKEW
+* CS-Z25ZKEW
 * CS-Z25XKEW (multi-split)
 * CS-Z35XKEW (multi-split)
 * CS-Z42VKEW

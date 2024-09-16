@@ -63,6 +63,8 @@ public class PanasonicComfortCloudAirconditionHandler extends PanasonicComfortCl
         updateStatus(ThingStatus.UNKNOWN);
         logger.debug("Initializing air conditioner using config {}", config);
         super.initialize(config.deviceId);
+        // This handler is responsible for loading the first time from the server, then the Account handler will take
+        // over
         scheduler.schedule(this::loadIfDevicePresent, 3, TimeUnit.SECONDS);
     }
 

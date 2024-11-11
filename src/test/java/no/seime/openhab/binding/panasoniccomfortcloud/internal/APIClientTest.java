@@ -48,14 +48,6 @@ public class APIClientTest {
     }
 
     @Test
-    public void testGenerateRandomHexString() {
-        int length = "B7d80fb2bc3faE769b89Bf4EC9C4729eCfe690C1CbBa7c42a40A062dc2f4f3671daAaFF1Cf6777cdC23dfcfFfa6DabdDec825c8b0BfB2EFDe04FCE17Bb5e086e"
-                .length();
-        String random = ApiBridge.generateRandomStringHex(length);
-        assertEquals(length, random.length());
-    }
-
-    @Test
     public void testParseAppBrain() throws IOException {
         InputStream is = getClass().getResourceAsStream("/appbrain_index.html");
         String html = new String(is.readAllBytes());

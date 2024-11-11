@@ -63,7 +63,7 @@ public class ApiBridge {
     private static final String BASE_PATH_AUTH = "https://authglb.digital.panasonic.com";
     private static final String BASE_PATH_ACC = "https://accsmart.panasonic.com";
     private static final String APPBRAIN_URL = "https://www.appbrain.com/app/panasonic-comfort-cloud/com.panasonic.ACCsmart";
-    private static final String DEFAULT_APP_VERSION = "1.21.1";
+    private static final String DEFAULT_APP_VERSION = "1.22.0";
 
     private static final String ACCESS_TOKEN_KEY = "accessToken";
     private static final String REFRESH_TOKEN_KEY = "refreshToken";
@@ -74,6 +74,7 @@ public class ApiBridge {
     private static final int ERROR_CODE_UPDATE_VERSION = 4106;
 
     private final Logger logger = LoggerFactory.getLogger(ApiBridge.class);
+    private MessageDigest digest = null;
 
     private String clientId;
     private String username;
@@ -82,11 +83,19 @@ public class ApiBridge {
     private Gson gson;
     private OkHttpClient client;
     private Storage<String> storage;
+    private DateTimeFormatter dateTimeFormatter;
 
     public ApiBridge(Storage<String> storage) {
         this.storage = storage;
         HttpLoggingInterceptor logging = new HttpLoggingInterceptor(message -> logger.debug(message));
         logging.setLevel(HttpLoggingInterceptor.Level.BODY);
+        dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.of("UTC"));
+
+        try {
+            digest = MessageDigest.getInstance("SHA-256");
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException(e);
+        }
 
         CookieJar cookieJar = new CookieJar() {
 
@@ -122,13 +131,29 @@ public class ApiBridge {
         return cookies;
     }
 
-    public static String generateRandomStringHex(int bitLength) {
+    public String generateAPIKey(Instant timestamp, String accessToken) {
         StringBuilder b = new StringBuilder();
-        for (int i = 0; i < bitLength; i++) {
-            b.append(Integer.toHexString((int) (Math.random() * 16)));
-        }
+        b.append("Comfort Cloud");
+        b.append("521325fb2dd486bf4831b47644317fca");
+        b.append(timestamp.getEpochSecond() * 1000);
+        b.append("Bearer ");
+        b.append(accessToken);
 
-        return b.toString();
+        byte[] hash = digest.digest(b.toString().getBytes(StandardCharsets.UTF_8));
+        String hex = bytesToHex(hash);
+        return hex.substring(0, 9) + "cfc" + hex.substring(9);
+    }
+
+    private static String bytesToHex(byte[] hash) {
+        StringBuilder hexString = new StringBuilder(2 * hash.length);
+        for (int i = 0; i < hash.length; i++) {
+            String hex = Integer.toHexString(0xff & hash[i]);
+            if (hex.length() == 1) {
+                hexString.append('0');
+            }
+            hexString.append(hex);
+        }
+        return hexString.toString();
     }
 
     public static String generateHash(String codeVerifier) throws NoSuchAlgorithmException {
@@ -175,14 +200,14 @@ public class ApiBridge {
             request = request.post(RequestBody.create(JSON, reqJson));
         }
 
+        Instant timestamp = Instant.now();
+
         request.addHeader("Accept-Encoding", "gzip, deflate").addHeader("Accept", "*/*")
                 .addHeader("User-Agent", "G-RAC").addHeader("Content-Type", "application/json;charset=utf-8")
                 .addHeader("x-app-name", "Comfort Cloud")
-                .addHeader("x-app-timestamp",
-                        DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault())
-                                .format(Instant.now()))
-                .addHeader("x-app-type", "1").addHeader("x-app-version", appVersion)
-                .addHeader("x-cfc-api-key", generateRandomStringHex(128))
+                .addHeader("x-app-timestamp", dateTimeFormatter.format(timestamp)).addHeader("x-app-type", "1")
+                .addHeader("x-app-version", appVersion)
+                .addHeader("x-cfc-api-key", generateAPIKey(timestamp, token.getAccessToken()))
                 .addHeader("x-user-authorization-v2", "Bearer " + token.getAccessToken())
                 .addHeader("x-client-id", token.getClientId()).build();
 
@@ -375,14 +400,13 @@ public class ApiBridge {
 
         RequestBody body = RequestBody.create(MediaType.parse("application/json;charset=utf-8"),
                 gson.toJson(new GetAccClientIdDTO()));
+
         Request getAccClientIdRequest = new Request.Builder().post(body).url(BASE_PATH_ACC + "/auth/v2/login")
                 .addHeader("Accept-Encoding", "gzip, deflate").addHeader("Accept", "*/*")
                 .addHeader("User-Agent", "G-RAC").addHeader("Content-Type", "application/json;charset=utf-8")
-                .addHeader("x-app-name", "Comfort Cloud")
-                .addHeader("x-app-timestamp",
-                        DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault()).format(now))
+                .addHeader("x-app-name", "Comfort Cloud").addHeader("x-app-timestamp", dateTimeFormatter.format(now))
                 .addHeader("x-app-type", "1").addHeader("x-app-version", appVersion)
-                .addHeader("x-cfc-api-key", generateRandomStringHex(128))
+                .addHeader("x-cfc-api-key", generateAPIKey(now, accessToken))
                 .addHeader("x-user-authorization-v2", "Bearer " + accessToken).build();
 
         Response getAccClientResponse = client.newCall(getAccClientIdRequest).execute();

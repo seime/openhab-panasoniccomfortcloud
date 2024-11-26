@@ -17,6 +17,7 @@ import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.commons.lang3.StringUtils;
@@ -151,14 +152,14 @@ public class PanasonicComfortCloudAccountHandler extends BaseBridgeHandler {
             updateStatus(ThingStatus.ONLINE);
             if (triggerDeviceUpdate) {
 
-                AtomicLong delayIncrementer = new AtomicLong(1000);
+                AtomicInteger delayIncrementer = new AtomicInteger(1000);
 
                 try {
                     getThing().getThings().stream()
                             .filter(e -> e.isEnabled()
                                     && (e.getStatus() == ThingStatus.ONLINE || e.getStatus() == ThingStatus.OFFLINE))
                             .forEach(e -> {
-                                long delay = delayIncrementer.addAndGet(random.nextLong(3000l));
+                                int delay = delayIncrementer.addAndGet(random.nextInt(3000));
                                 try {
                                     scheduler.schedule(() -> ((PanasonicComfortCloudBaseThingHandler) e.getHandler())
                                             .loadFromServer(), delay, TimeUnit.MILLISECONDS);

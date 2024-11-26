@@ -16,6 +16,7 @@ package no.seime.openhab.binding.panasoniccomfortcloud.internal.handler;
 import static no.seime.openhab.binding.panasoniccomfortcloud.internal.BindingConstants.*;
 
 import java.util.Optional;
+import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
 import javax.measure.quantity.Temperature;
@@ -55,6 +56,8 @@ public class PanasonicComfortCloudAirconditionHandler extends PanasonicComfortCl
         super(thing);
     }
 
+    private Random random = new Random();
+
     private AirConditionerConfiguration config;
 
     @Override
@@ -65,7 +68,7 @@ public class PanasonicComfortCloudAirconditionHandler extends PanasonicComfortCl
         super.initialize(config.deviceId);
         // This handler is responsible for loading the first time from the server, then the Account handler will take
         // over
-        scheduler.schedule(this::loadIfDevicePresent, 3, TimeUnit.SECONDS);
+        scheduler.schedule(this::loadIfDevicePresent, 3 + random.nextInt(10), TimeUnit.SECONDS);
     }
 
     private void loadIfDevicePresent() {

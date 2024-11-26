@@ -14,8 +14,10 @@
 package no.seime.openhab.binding.panasoniccomfortcloud.internal.handler;
 
 import java.util.Optional;
+import java.util.Random;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.jdt.annotation.NonNullByDefault;
@@ -62,6 +64,8 @@ public class PanasonicComfortCloudAccountHandler extends BaseBridgeHandler {
     private int errorCounter = 0;
 
     private static final String STORAGE_KEY = "PanasonicComfortCloud-Storage";
+
+    private Random random = new Random();
 
     public PanasonicComfortCloudAccountHandler(final Bridge bridge, StorageService storageService) {
         super(bridge);
@@ -146,13 +150,18 @@ public class PanasonicComfortCloudAccountHandler extends BaseBridgeHandler {
             }
             updateStatus(ThingStatus.ONLINE);
             if (triggerDeviceUpdate) {
+
+                AtomicLong delayIncrementer = new AtomicLong(1000);
+
                 try {
-                    getThing().getThings().parallelStream()
+                    getThing().getThings().stream()
                             .filter(e -> e.isEnabled()
                                     && (e.getStatus() == ThingStatus.ONLINE || e.getStatus() == ThingStatus.OFFLINE))
                             .forEach(e -> {
+                                long delay = delayIncrementer.addAndGet(random.nextLong(3000));
                                 try {
-                                    ((PanasonicComfortCloudBaseThingHandler) e.getHandler()).loadFromServer();
+                                    scheduler.schedule(() -> ((PanasonicComfortCloudBaseThingHandler) e.getHandler())
+                                            .loadFromServer(), delay, TimeUnit.MILLISECONDS);
                                 } catch (Exception ex) {
                                     logger.warn("Error updating thing {}", e.getUID(), ex);
                                 }

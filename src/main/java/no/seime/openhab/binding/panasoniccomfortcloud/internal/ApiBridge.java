@@ -89,7 +89,7 @@ public class ApiBridge {
         this.storage = storage;
         HttpLoggingInterceptor logging = new HttpLoggingInterceptor(message -> logger.debug(message));
         logging.setLevel(HttpLoggingInterceptor.Level.BODY);
-        dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.of("UTC"));
+        dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.of("GMT"));
 
         try {
             digest = MessageDigest.getInstance("SHA-256");
@@ -202,11 +202,11 @@ public class ApiBridge {
 
         Instant timestamp = Instant.now();
 
+        String formattedDate = dateTimeFormatter.format(timestamp);
         request.addHeader("Accept-Encoding", "gzip, deflate").addHeader("Accept", "*/*")
                 .addHeader("User-Agent", "G-RAC").addHeader("Content-Type", "application/json;charset=utf-8")
-                .addHeader("x-app-name", "Comfort Cloud")
-                .addHeader("x-app-timestamp", dateTimeFormatter.format(timestamp)).addHeader("x-app-type", "1")
-                .addHeader("x-app-version", appVersion)
+                .addHeader("x-app-name", "Comfort Cloud").addHeader("x-app-timestamp", formattedDate)
+                .addHeader("x-app-type", "1").addHeader("x-app-version", appVersion)
                 .addHeader("x-cfc-api-key", generateAPIKey(timestamp, token.getAccessToken()))
                 .addHeader("x-user-authorization-v2", "Bearer " + token.getAccessToken())
                 .addHeader("x-client-id", token.getClientId()).build();
@@ -401,10 +401,11 @@ public class ApiBridge {
         RequestBody body = RequestBody.create(MediaType.parse("application/json;charset=utf-8"),
                 gson.toJson(new GetAccClientIdDTO()));
 
+        String formattedDate = dateTimeFormatter.format(now);
         Request getAccClientIdRequest = new Request.Builder().post(body).url(BASE_PATH_ACC + "/auth/v2/login")
                 .addHeader("Accept-Encoding", "gzip, deflate").addHeader("Accept", "*/*")
                 .addHeader("User-Agent", "G-RAC").addHeader("Content-Type", "application/json;charset=utf-8")
-                .addHeader("x-app-name", "Comfort Cloud").addHeader("x-app-timestamp", dateTimeFormatter.format(now))
+                .addHeader("x-app-name", "Comfort Cloud").addHeader("x-app-timestamp", formattedDate)
                 .addHeader("x-app-type", "1").addHeader("x-app-version", appVersion)
                 .addHeader("x-cfc-api-key", generateAPIKey(now, accessToken))
                 .addHeader("x-user-authorization-v2", "Bearer " + accessToken).build();

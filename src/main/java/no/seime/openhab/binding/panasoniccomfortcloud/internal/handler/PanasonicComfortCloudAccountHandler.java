@@ -158,7 +158,7 @@ public class PanasonicComfortCloudAccountHandler extends BaseBridgeHandler {
                             .filter(e -> e.isEnabled()
                                     && (e.getStatus() == ThingStatus.ONLINE || e.getStatus() == ThingStatus.OFFLINE))
                             .forEach(e -> {
-                                long delay = delayIncrementer.addAndGet(random.nextLong(3000));
+                                long delay = delayIncrementer.addAndGet(random.nextLong(3000l));
                                 try {
                                     scheduler.schedule(() -> ((PanasonicComfortCloudBaseThingHandler) e.getHandler())
                                             .loadFromServer(), delay, TimeUnit.MILLISECONDS);

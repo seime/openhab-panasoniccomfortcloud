@@ -1,6 +1,7 @@
 package no.seime.openhab.binding.panasoniccomfortcloud.internal;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -48,12 +49,21 @@ public class APIClientTest {
     }
 
     @Test
-    public void testParseAppBrain() throws IOException {
-        InputStream is = getClass().getResourceAsStream("/appbrain_index.html");
-        String html = new String(is.readAllBytes());
+    public void testParseItunes() throws IOException {
+        InputStream is = getClass().getResourceAsStream("/itunes_lookup.json");
+        String json = new String(is.readAllBytes());
 
         ApiBridge apiBridge = new ApiBridge(storage);
-        String appVersion = apiBridge.parseAppBrainAppVersion(html);
-        assertEquals("1.21.0", appVersion);
+        String appVersion = apiBridge.parseItunesAppVersion(json);
+        assertEquals("2.1.0", appVersion);
+    }
+
+    @Test
+    public void testGetAppVersionIntegration() {
+        ApiBridge apiBridge = new ApiBridge(storage);
+        String appVersion = apiBridge.getAppVersion();
+        assertNotNull(appVersion);
+        // Version should look like x.y.z
+        assert (appVersion.matches("\\d+\\.\\d+\\.\\d+"));
     }
 }

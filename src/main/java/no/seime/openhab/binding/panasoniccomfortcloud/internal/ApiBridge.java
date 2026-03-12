@@ -62,8 +62,8 @@ public class ApiBridge {
     private static final String REDIRECT_URI = "panasonic-iot-cfc://authglb.digital.panasonic.com/android/com.panasonic.ACCsmart/callback";
     private static final String BASE_PATH_AUTH = "https://authglb.digital.panasonic.com";
     private static final String BASE_PATH_ACC = "https://accsmart.panasonic.com";
-    private static final String APPBRAIN_URL = "https://www.appbrain.com/app/panasonic-comfort-cloud/com.panasonic.ACCsmart";
-    private static final String DEFAULT_APP_VERSION = "2.1.0";
+    private static final String ITUNES_APP_VERSION_URL = "https://itunes.apple.com/lookup?id=1348640525";
+    private static final String DEFAULT_APP_VERSION = "4.1.0";
 
     private static final String ACCESS_TOKEN_KEY = "accessToken";
     private static final String REFRESH_TOKEN_KEY = "refreshToken";
@@ -176,7 +176,7 @@ public class ApiBridge {
         this.password = password;
 
         if (configuredAppVersion == null) {
-            logger.debug("No configured appVersion in thing configuration, trying to fetch from AppBrain website");
+            logger.debug("No configured appVersion in thing configuration, trying to fetch from iTunes lookup");
             appVersion = getAppVersion();
             if (appVersion == null) {
                 logger.info(
@@ -184,7 +184,7 @@ public class ApiBridge {
                         DEFAULT_APP_VERSION);
                 appVersion = DEFAULT_APP_VERSION;
             } else {
-                logger.debug("Fetched appVersion from AppBrain: {}", appVersion);
+                logger.debug("Fetched appVersion from iTunes lookup: {}", appVersion);
             }
         } else {
             appVersion = configuredAppVersion;
@@ -468,10 +468,10 @@ public class ApiBridge {
         return refreshedToken;
     }
 
-    private String getAppVersion() {
+    String getAppVersion() {
         try {
 
-            HttpRequest request = HttpRequest.newBuilder().uri(new URI(APPBRAIN_URL)).headers("User-Agent",
+            HttpRequest request = HttpRequest.newBuilder().uri(new URI(ITUNES_APP_VERSION_URL)).headers("User-Agent",
                     "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Mobile Safari/537.36")
                     .GET().build();
 
@@ -479,7 +479,7 @@ public class ApiBridge {
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
             String body = response.body();
-            return parseAppBrainAppVersion(body);
+            return parseItunesAppVersion(body);
 
         } catch (Exception e) {
             logger.warn("Exception getting appVersion", e);
@@ -487,12 +487,13 @@ public class ApiBridge {
         return null;
     }
 
-    public String parseAppBrainAppVersion(String body) {
-        Document doc = Jsoup.parse(body);
-        Elements elements = doc.selectXpath("//meta[@itemprop='softwareVersion']");
-
-        if (elements.size() == 1) {
-            return elements.get(0).attr("content");
+    public String parseItunesAppVersion(String body) {
+        JsonObject jsonObject = JsonParser.parseString(body).getAsJsonObject();
+        if (jsonObject.has("results")) {
+            var results = jsonObject.getAsJsonArray("results");
+            if (results.size() > 0) {
+                return results.get(0).getAsJsonObject().get("version").getAsString();
+            }
         }
 
         return null;

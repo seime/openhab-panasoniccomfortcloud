@@ -64,7 +64,7 @@ public class PanasonicComfortCloudDiscoveryService extends AbstractDiscoveryServ
     protected void startScan() {
         logger.debug("Start scan for Panasonic Comfort Cloud devices.");
         synchronized (this) {
-            // REMOVED FOR NOW, NOT COMPATIBLE WITH OH5. 
+            // REMOVED FOR NOW, NOT COMPATIBLE WITH OH5.
             // removeOlderResults(getTimestampOfLastScan(), null, accountHandler.getThing().getUID());
             final ThingUID accountUID = accountHandler.getThing().getUID();
             accountHandler.doPoll(false);

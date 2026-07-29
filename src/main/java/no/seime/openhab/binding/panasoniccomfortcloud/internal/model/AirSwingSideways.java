@@ -20,7 +20,7 @@ public enum AirSwingSideways {
     LEFT(0),
     LEFT_CENTER(4),
     CENTER(2),
-    RIGHT_CENTER(3),
+    RIGHT_CENTER(5),
     RIGHT(1);
 
     public final int value;

@@ -64,7 +64,7 @@ public class ApiBridge {
     private static final String BASE_PATH_AUTH = "https://authglb.digital.panasonic.com";
     private static final String BASE_PATH_ACC = "https://accsmart.panasonic.com";
     private static final String ITUNES_APP_VERSION_URL = "https://itunes.apple.com/lookup?id=1348640525";
-    private static final String DEFAULT_APP_VERSION = "4.1.0";
+    private static final String DEFAULT_APP_VERSION = "4.3.0";
 
     private static final String ACCESS_TOKEN_KEY = "accessToken";
     private static final String REFRESH_TOKEN_KEY = "refreshToken";

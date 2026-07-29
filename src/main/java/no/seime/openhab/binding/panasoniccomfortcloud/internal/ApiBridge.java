@@ -14,14 +14,9 @@ package no.seime.openhab.binding.panasoniccomfortcloud.internal;
 
 import java.io.IOException;
 import java.lang.reflect.Type;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -470,21 +465,12 @@ public class ApiBridge {
     }
 
     String getAppVersion() {
-        try {
+        Request request = new Request.Builder().url(ITUNES_APP_VERSION_URL).get().addHeader("User-Agent",
+                "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Mobile Safari/537.36")
+                .build();
 
-            HttpRequest request = HttpRequest.newBuilder().uri(new URI(ITUNES_APP_VERSION_URL)).headers("User-Agent",
-                    "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Mobile Safari/537.36")
-                    .timeout(Duration.ofSeconds(10)).GET().build();
-
-            HttpClient httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-
-            String body = response.body();
-            return parseItunesAppVersion(body);
-
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            logger.debug("Interrupted while fetching appVersion from iTunes");
+        try (Response response = client.newCall(request).execute()) {
+            return parseItunesAppVersion(response.body().string());
         } catch (Exception e) {
             logger.warn("Exception getting appVersion", e);
         }

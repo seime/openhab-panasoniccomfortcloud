@@ -21,6 +21,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -473,14 +474,17 @@ public class ApiBridge {
 
             HttpRequest request = HttpRequest.newBuilder().uri(new URI(ITUNES_APP_VERSION_URL)).headers("User-Agent",
                     "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Mobile Safari/537.36")
-                    .GET().build();
+                    .timeout(Duration.ofSeconds(10)).GET().build();
 
-            HttpClient httpClient = HttpClient.newHttpClient();
+            HttpClient httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
             String body = response.body();
             return parseItunesAppVersion(body);
 
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.debug("Interrupted while fetching appVersion from iTunes");
         } catch (Exception e) {
             logger.warn("Exception getting appVersion", e);
         }

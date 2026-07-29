@@ -1,7 +1,6 @@
 package no.seime.openhab.binding.panasoniccomfortcloud.internal;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -64,6 +63,6 @@ public class APIClientTest {
         String appVersion = apiBridge.getAppVersion();
         assertNotNull(appVersion);
         // Version should look like x.y.z
-        assert (appVersion.matches("\\d+\\.\\d+\\.\\d+"));
+        assertTrue(appVersion.matches("\\d+\\.\\d+\\.\\d+"));
     }
 }

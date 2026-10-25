@@ -31,7 +31,7 @@ See full example below for how to configure using thing files.
 
 *Advanced configuration:*
 
-* `appVersion` = Override the automatically fetched latest (mobile) app version. Only use if automatic app version fetching fails.
+* `appVersion` = Override the automatically fetched latest (mobile) app version. Only use if automatic app version fetching fails. If the service rejects the configured version, the binding switches to the version currently published in the App Store.
 * `refreshInterval` = Number of seconds between refresh calls to the server (_optional_)
 
 ### aircondition

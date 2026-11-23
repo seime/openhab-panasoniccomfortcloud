@@ -12,8 +12,6 @@
  */
 package no.seime.openhab.binding.panasoniccomfortcloud.internal.dto;
 
-import org.eclipse.jetty.http.HttpMethod;
-
 /**
  * All classes in the .dto are data transfer classes used by the GSON mapper. This class reflects a
  * part of a request/response data structure.
@@ -24,6 +22,6 @@ public abstract class AbstractRequest {
     public abstract String getRequestUrl();
 
     public String getMethod() {
-        return HttpMethod.GET.asString();
+        return "GET";
     }
 }

@@ -73,6 +73,7 @@
             <configuration>
               <checkstyleFilter>checkstyle-suppressions.xml</checkstyleFilter>
               <checkstyleProperties>ruleset.properties</checkstyleProperties>
+              <spotbugsExclude>spotbugs-suppressions.xml</spotbugsExclude>
             </configuration>
           </plugin>
           <plugin>

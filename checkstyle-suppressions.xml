@@ -8,6 +8,8 @@
 	<suppress files=".+Impl\.java" checks="JavadocType|JavadocVariable|JavadocMethod|MissingJavadocFilterCheck"/>
 	<suppress files=".+[\\/]pom\.xml" checks="OnlyTabIndentationCheck"/>
 	<suppress files=".+[\\/]OH-INF[\\/].+\.xml" checks="OhInfXmlLabelCheck"/>
+	<!-- KarafAddonFeatureCheck assumes an org.openhab.* bundle name; this add-on lives under no.seime.* -->
+	<suppress files=".+[\\/]feature[\\/]feature\.xml" checks="KarafAddonFeatureCheck"/>
 
 	<!-- All generated files will skip the author tag check -->
 	<suppress files=".+[\\/]gen[\\/].+\.java" checks="AuthorTagCheck"/>

@@ -18,7 +18,9 @@ https://openhab.org/schemas/config-description-1.0.0.xsd">
 		<parameter name="appVersion" type="text" required="false">
 			<label>App version</label>
 			<description>Your Panasonic Comfort Cloud app version code. Only fill in if the binding is unable to fetch the latest
-				version automatically - OR if you want to simulate a different app version.
+				version automatically - OR if you want to simulate a different app version. If the service rejects this
+				version, the
+				binding switches to the version currently published in the App Store.
 			</description>
 			<advanced>true</advanced>
 		</parameter>

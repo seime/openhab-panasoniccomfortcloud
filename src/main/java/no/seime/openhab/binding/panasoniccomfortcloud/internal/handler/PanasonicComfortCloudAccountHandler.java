@@ -54,7 +54,7 @@ import no.seime.openhab.binding.panasoniccomfortcloud.internal.model.GroupModel;
 @NonNullByDefault
 public class PanasonicComfortCloudAccountHandler extends BaseBridgeHandler {
     private static final int MIN_TIME_BETWEEEN_MODEL_UPDATES = 30;
-    public static final int MAX_RETRIES_BEFORE_GIVING_UP = 10;
+    private static final long MAX_RETRY_DELAY_SECONDS = 3600;
     private final Logger logger = LoggerFactory.getLogger(PanasonicComfortCloudAccountHandler.class);
     private Optional<ScheduledFuture<?>> statusFuture = Optional.empty();
     private GroupModel model;
@@ -80,8 +80,9 @@ public class PanasonicComfortCloudAccountHandler extends BaseBridgeHandler {
 
     @Override
     public void initialize() {
-        // Stop any pending updates if any
-        stopScheduledUpdate();
+        // Stop any pending updates if any. When called as a scheduled retry the future is the one currently running
+        // this method, so it must not be interrupted - the interrupt flag would make every following HTTP call fail
+        stopScheduledUpdate(false);
 
         updateStatus(ThingStatus.UNKNOWN);
         AccountConfiguration loadedConfig = getConfigAs(AccountConfiguration.class);
@@ -99,7 +100,7 @@ public class PanasonicComfortCloudAccountHandler extends BaseBridgeHandler {
 
     @Override
     public void dispose() {
-        stopScheduledUpdate();
+        stopScheduledUpdate(true);
         super.dispose();
     }
 
@@ -149,6 +150,7 @@ public class PanasonicComfortCloudAccountHandler extends BaseBridgeHandler {
                 }
             }
             updateStatus(ThingStatus.ONLINE);
+            errorCounter = 0;
             if (triggerDeviceUpdate) {
 
                 AtomicInteger delayIncrementer = new AtomicInteger(1000);
@@ -174,41 +176,34 @@ public class PanasonicComfortCloudAccountHandler extends BaseBridgeHandler {
             }
         } catch (final ConfigurationException e) {
             logger.info("Error initializing Panasonic Comfort Cloud data: {}", e.getMessage());
-            stopScheduledUpdate();
+            stopScheduledUpdate(false);
             model.clear();
             updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                     "Error fetching data: " + e.getMessage());
         } catch (final PanasonicComfortCloudException e) {
             logger.info("Error initializing data: {}", e.getMessage());
-            stopScheduledUpdate();
+            stopScheduledUpdate(false);
             model.clear();
 
             errorCounter++;
 
-            int retryDelay = 60 * (errorCounter * errorCounter);
-            // Try init again
-            if (errorCounter <= MAX_RETRIES_BEFORE_GIVING_UP) {
-                logger.info("Will try to re-init in {} seconds. Attempt {} of {}", retryDelay, errorCounter,
-                        MAX_RETRIES_BEFORE_GIVING_UP);
-                statusFuture = Optional.of(scheduler.schedule(this::initialize, retryDelay, TimeUnit.SECONDS));
-                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
-                        "Error fetching data: " + e.getMessage() + ", will retry in " + retryDelay + " seconds");
-            } else {
-                logger.info("Too many communication errors, giving up");
-                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
-                        "Error fetching data: " + e.getMessage() + ", not retrying due to too many errors");
-                errorCounter = 0;
-            }
+            // Back off quadratically, but never give up - an outage of the internet connection or the cloud
+            // service must heal by itself once it is over
+            long retryDelay = Math.min(60L * errorCounter * errorCounter, MAX_RETRY_DELAY_SECONDS);
+            logger.info("Will try to re-init in {} seconds. Attempt {}", retryDelay, errorCounter);
+            statusFuture = Optional.of(scheduler.schedule(this::initialize, retryDelay, TimeUnit.SECONDS));
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "Error fetching data: " + e.getMessage() + ", will retry in " + retryDelay + " seconds");
         }
     }
 
     /**
      * Stops this thing's polling future
      */
-    private void stopScheduledUpdate() {
+    private void stopScheduledUpdate(boolean mayInterruptIfRunning) {
         statusFuture.ifPresent(future -> {
             if (!future.isCancelled()) {
-                future.cancel(true);
+                future.cancel(mayInterruptIfRunning);
             }
             statusFuture = Optional.empty();
         });

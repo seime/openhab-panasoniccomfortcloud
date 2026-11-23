@@ -1,3 +1,15 @@
+/**
+ * Copyright (c) 2023 Contributors to the Seime Openhab Addons project
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ */
 package no.seime.openhab.binding.panasoniccomfortcloud.internal;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -21,6 +33,9 @@ import com.google.gson.reflect.TypeToken;
 import no.seime.openhab.binding.panasoniccomfortcloud.internal.dto.GetGroupsRequest;
 import no.seime.openhab.binding.panasoniccomfortcloud.internal.dto.GetGroupsResponse;
 
+/**
+ * @author Arne Seime - Initial contribution
+ */
 @ExtendWith(MockitoExtension.class)
 public class APIClientTest {
 
@@ -154,6 +169,22 @@ public class APIClientTest {
         apiBridge.init("user", "password", "5.1.1");
         assertFalse(apiBridge.switchAfterRejection("5.1.1", "5.1.1"));
         assertEquals("5.1.1", apiBridge.currentAppVersion());
+    }
+
+    @Test
+    public void testDoesNotSwitchBackToRejectedVersion() {
+        // Panasonic raised the minimum above both the App Store version and the last accepted one
+        storage.put("appVersion", "5.1.0");
+        ApiBridge apiBridge = new ApiBridge(storage);
+        apiBridge.init("user", "password", "5.1.1");
+        assertTrue(apiBridge.switchAfterRejection("5.1.1", "5.1.1"));
+        assertEquals("5.1.0", apiBridge.currentAppVersion());
+        // 5.1.0 is rejected as well - must not go back to 5.1.1
+        assertFalse(apiBridge.switchAfterRejection("5.1.0", "5.1.1"));
+        assertEquals("5.1.0", apiBridge.currentAppVersion());
+        // A new App Store release is still tried
+        assertTrue(apiBridge.switchAfterRejection("5.1.0", "5.2.0"));
+        assertEquals("5.2.0", apiBridge.currentAppVersion());
     }
 
     @Test

@@ -20,7 +20,8 @@ https://openhab.org/schemas/config-description-1.0.0.xsd">
 			<description>Your Panasonic Comfort Cloud app version code. Only fill in if the binding is unable to fetch the latest
 				version automatically - OR if you want to simulate a different app version. If the service rejects this
 				version, the
-				binding switches to the version currently published in the App Store.
+				binding switches to a newer version from the App Store, or to the last version the service
+				accepted.
 			</description>
 			<advanced>true</advanced>
 		</parameter>

@@ -34,6 +34,7 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.InflaterInputStream;
@@ -75,7 +76,8 @@ public class ApiBridge {
     private static final String BASE_PATH_AUTH = "https://authglb.digital.panasonic.com";
     private static final String BASE_PATH_ACC = "https://accsmart.panasonic.com";
     private static final String ITUNES_APP_VERSION_URL = "https://itunes.apple.com/lookup?id=1348640525";
-    private static final String DEFAULT_APP_VERSION = "4.4.0";
+    // Last version known to be accepted by the API (5.1.1 was an iOS-only release that the API rejected)
+    private static final String DEFAULT_APP_VERSION = "5.1.0";
 
     private static final String APP_VERSION_KEY = "appVersion";
     private static final String ACCESS_TOKEN_KEY = "accessToken";
@@ -93,6 +95,8 @@ public class ApiBridge {
     private String username;
     private String password;
     private volatile String appVersion;
+    // Versions the API has rejected with 4106 during the lifetime of this bridge - never switch back to one of these
+    private final Set<String> rejectedAppVersions = ConcurrentHashMap.newKeySet();
     private Gson gson;
     private HttpClient client;
     private Storage<String> storage;
@@ -271,6 +275,13 @@ public class ApiBridge {
                         "Could not fetch appVersion dynamically, and no value is provided on the bridge thing. Defaulting to {}",
                         fallbackAppVersion);
                 appVersion = fallbackAppVersion;
+            } else if (rejectedAppVersions.contains(appVersion)) {
+                String lastAcceptedAppVersion = storage.get(APP_VERSION_KEY);
+                if (lastAcceptedAppVersion != null && !rejectedAppVersions.contains(lastAcceptedAppVersion)) {
+                    logger.debug("App Store version {} was rejected by the API before, using last accepted version {}",
+                            appVersion, lastAcceptedAppVersion);
+                    appVersion = lastAcceptedAppVersion;
+                }
             } else {
                 logger.debug("Fetched appVersion from iTunes lookup: {}", appVersion);
             }
@@ -354,7 +365,9 @@ public class ApiBridge {
     }
 
     synchronized boolean switchAfterRejection(String rejectedAppVersion, @Nullable String publishedAppVersion) {
-        if (publishedAppVersion != null && compareVersions(publishedAppVersion, rejectedAppVersion) > 0) {
+        rejectedAppVersions.add(rejectedAppVersion);
+        if (publishedAppVersion != null && compareVersions(publishedAppVersion, rejectedAppVersion) > 0
+                && !rejectedAppVersions.contains(publishedAppVersion)) {
             logger.info("API rejected appVersion {}, switching to {} from the App Store", rejectedAppVersion,
                     publishedAppVersion);
             appVersion = publishedAppVersion;
@@ -362,7 +375,7 @@ public class ApiBridge {
         }
         // The App Store can be ahead of what the API accepts, e.g. an iOS release before the matching Android one
         String lastAcceptedAppVersion = storage.get(APP_VERSION_KEY);
-        if (lastAcceptedAppVersion != null && !lastAcceptedAppVersion.equals(rejectedAppVersion)) {
+        if (lastAcceptedAppVersion != null && !rejectedAppVersions.contains(lastAcceptedAppVersion)) {
             logger.info("API rejected appVersion {} (App Store has {}), falling back to last accepted version {}",
                     rejectedAppVersion, publishedAppVersion, lastAcceptedAppVersion);
             appVersion = lastAcceptedAppVersion;
@@ -387,6 +400,7 @@ public class ApiBridge {
 
     private void rememberAppVersion() {
         String currentAppVersion = appVersion;
+        rejectedAppVersions.remove(currentAppVersion);
         if (!currentAppVersion.equals(storage.get(APP_VERSION_KEY))) {
             storage.put(APP_VERSION_KEY, currentAppVersion);
         }

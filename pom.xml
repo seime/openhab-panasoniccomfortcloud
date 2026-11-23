@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
 
@@ -15,6 +15,11 @@
   <artifactId>no.seime.openhab.binding.panasoniccomfortcloud</artifactId>
 
   <name>Seime Add-ons :: Bundles :: Panasonic Comfort Cloud Binding</name>
+
+  <properties>
+    <!-- Optional dependencies of the embedded jsoup (re2j is only used when enabled via system property) -->
+    <bnd.importpackage>com.google.re2j.*;resolution:=optional,org.jspecify.annotations.*;resolution:=optional</bnd.importpackage>
+  </properties>
 
   <repositories>
     <repository>
@@ -33,29 +38,10 @@
     </repository>
   </repositories>
   <dependencies>
-    <!-- https://mvnrepository.com/artifact/org.jsoup/jsoup -->
     <dependency>
       <groupId>org.jsoup</groupId>
       <artifactId>jsoup</artifactId>
-      <version>1.17.2</version>
-    </dependency>
-    <dependency>
-      <groupId>org.jspecify</groupId>
-      <artifactId>jspecify</artifactId>
-      <version>0.3.0</version>
-    </dependency>
-
-    <dependency>
-      <groupId>org.json</groupId>
-      <artifactId>json</artifactId>
-      <version>20231013</version>
-      <scope>compile</scope>
-    </dependency>
-    <dependency>
-      <groupId>com.github.tomakehurst</groupId>
-      <artifactId>wiremock-standalone</artifactId>
-      <version>2.23.0</version>
-      <scope>test</scope>
+      <version>1.24.1</version>
     </dependency>
   </dependencies>
 

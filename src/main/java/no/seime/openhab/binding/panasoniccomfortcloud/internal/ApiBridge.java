@@ -12,17 +12,31 @@
  */
 package no.seime.openhab.binding.panasoniccomfortcloud.internal;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.Type;
+import java.net.CookieManager;
+import java.net.CookiePolicy;
+import java.net.HttpCookie;
+import java.net.URI;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.InflaterInputStream;
 
 import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.jdt.annotation.Nullable;
@@ -41,8 +55,6 @@ import com.google.gson.JsonParser;
 import no.seime.openhab.binding.panasoniccomfortcloud.internal.dto.AbstractRequest;
 import no.seime.openhab.binding.panasoniccomfortcloud.internal.dto.GetAccClientIdDTO;
 import no.seime.openhab.binding.panasoniccomfortcloud.internal.dto.LoginRequestDTO;
-import okhttp3.*;
-import okhttp3.logging.HttpLoggingInterceptor;
 
 /**
  * The {@link ApiBridge} is responsible for API login and communication
@@ -51,7 +63,11 @@ import okhttp3.logging.HttpLoggingInterceptor;
  */
 public class ApiBridge {
     public static final String APPLICATION_JSON_CHARSET_UTF_8 = "application/json; charset=utf-8";
-    public static final MediaType JSON = MediaType.parse(APPLICATION_JSON_CHARSET_UTF_8);
+    private static final String APPLICATION_FORM_URLENCODED = "application/x-www-form-urlencoded";
+    private static final String OKHTTP_USER_AGENT = "okhttp/4.10.0";
+    private static final String BROWSER_USER_AGENT = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Mobile Safari/537.36";
+    private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(20);
+    private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(30);
 
     private static final String APP_CLIENT_ID = "Xmy6xIYIitMxngjB2rHvlm6HSDNnaMJx";
     private static final String AUTH_0_CLIENT = "eyJuYW1lIjoiQXV0aDAuQW5kcm9pZCIsImVudiI6eyJhbmRyb2lkIjoiMzAifSwidmVyc2lvbiI6IjIuOS4zIn0=";
@@ -77,14 +93,12 @@ public class ApiBridge {
     private String password;
     private String appVersion;
     private Gson gson;
-    private OkHttpClient client;
+    private HttpClient client;
     private Storage<String> storage;
     private DateTimeFormatter dateTimeFormatter;
 
     public ApiBridge(Storage<String> storage) {
         this.storage = storage;
-        HttpLoggingInterceptor logging = new HttpLoggingInterceptor(message -> logger.debug(message));
-        logging.setLevel(HttpLoggingInterceptor.Level.BODY);
         dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.of("GMT"));
 
         try {
@@ -93,38 +107,113 @@ public class ApiBridge {
             throw new RuntimeException(e);
         }
 
-        CookieJar cookieJar = new CookieJar() {
-
-            private Map<String, List<Cookie>> cookies = new HashMap<>();
-
-            @Override
-            public void saveFromResponse(HttpUrl httpUrl, List<Cookie> list) {
-                List<Cookie> cookies = this.cookies.computeIfAbsent(httpUrl.host(), s -> new ArrayList<>());
-                cookies.addAll(list);
-            }
-
-            @Override
-            public List<Cookie> loadForRequest(HttpUrl httpUrl) {
-                List<Cookie> cookies = this.cookies.get(httpUrl.host());
-                return cookies != null ? cookies : new ArrayList<>();
-            }
-        };
-
-        client = new OkHttpClient.Builder().connectTimeout(20, TimeUnit.SECONDS).readTimeout(30, TimeUnit.SECONDS)
-                .followRedirects(false).followSslRedirects(false).addInterceptor(logging).cookieJar(cookieJar).build();
+        client = HttpClient.newBuilder().connectTimeout(CONNECT_TIMEOUT).followRedirects(HttpClient.Redirect.NEVER)
+                .cookieHandler(new CookieManager(null, CookiePolicy.ACCEPT_ALL)).version(HttpClient.Version.HTTP_1_1)
+                .build();
 
         gson = new GsonBuilder().setLenient().setPrettyPrinting().create();
     }
 
-    private static @NonNull Map<String, String> parseCookies(Response redirectResponse) {
+    private static @NonNull Map<String, String> parseCookies(HttpResponse<?> redirectResponse) {
         Map<String, String> cookies = new HashMap<>();
 
-        for (String header : redirectResponse.headers("Set-Cookie")) {
-            Cookie cookie = Cookie.parse(HttpUrl.parse("https://www.example.com/"), header);
-            cookies.put(cookie.name(), cookie.value());
-
+        for (String header : redirectResponse.headers().allValues("Set-Cookie")) {
+            try {
+                for (HttpCookie cookie : HttpCookie.parse(header)) {
+                    cookies.put(cookie.getName(), cookie.getValue());
+                }
+            } catch (IllegalArgumentException e) {
+                // Ignore malformed cookie
+            }
         }
         return cookies;
+    }
+
+    private static HttpRequest.BodyPublisher jsonBody(String json) {
+        return HttpRequest.BodyPublishers.ofString(json, StandardCharsets.UTF_8);
+    }
+
+    static HttpRequest.BodyPublisher formBody(Map<String, String> params) {
+        String encoded = params.entrySet().stream().map(e -> URLEncoder.encode(e.getKey(), StandardCharsets.UTF_8) + "="
+                + URLEncoder.encode(e.getValue(), StandardCharsets.UTF_8)).collect(Collectors.joining("&"));
+        return HttpRequest.BodyPublishers.ofString(encoded, StandardCharsets.UTF_8);
+    }
+
+    static String buildUrl(String base, Map<String, String> queryParams) {
+        return base + "?"
+                + queryParams.entrySet().stream()
+                        .map(e -> URLEncoder.encode(e.getKey(), StandardCharsets.UTF_8).replace("+", "%20") + "="
+                                + URLEncoder.encode(e.getValue(), StandardCharsets.UTF_8).replace("+", "%20"))
+                        .collect(Collectors.joining("&"));
+    }
+
+    /**
+     * Extract a query string parameter from an URL or relative location. Works for custom schemes as well.
+     */
+    static @Nullable String getQueryParameter(@Nullable String location, String name) {
+        if (location == null) {
+            return null;
+        }
+        int queryStart = location.indexOf('?');
+        if (queryStart < 0) {
+            return null;
+        }
+        String query = location.substring(queryStart + 1);
+        int fragmentStart = query.indexOf('#');
+        if (fragmentStart >= 0) {
+            query = query.substring(0, fragmentStart);
+        }
+        for (String pair : query.split("&")) {
+            int eq = pair.indexOf('=');
+            String key = URLDecoder.decode(eq < 0 ? pair : pair.substring(0, eq), StandardCharsets.UTF_8);
+            if (key.equals(name)) {
+                return eq < 0 ? "" : URLDecoder.decode(pair.substring(eq + 1), StandardCharsets.UTF_8);
+            }
+        }
+        return null;
+    }
+
+    private HttpResponse<String> execute(HttpRequest request) throws IOException {
+        logger.debug("--> {} {}", request.method(), request.uri());
+        HttpResponse<byte[]> rawResponse;
+        try {
+            rawResponse = client.send(request, HttpResponse.BodyHandlers.ofByteArray());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException("Interrupted while waiting for response", e);
+        }
+        String body = decodeBody(rawResponse);
+        logger.debug("<-- {} {} {}", rawResponse.statusCode(), request.method(), request.uri());
+        logger.trace("Response body: {}", body);
+        return new StringHttpResponse(rawResponse, body);
+    }
+
+    private static String decodeBody(HttpResponse<byte[]> response) throws IOException {
+        byte[] bytes = response.body();
+        if (bytes == null || bytes.length == 0) {
+            return "";
+        }
+        String encoding = response.headers().firstValue("Content-Encoding").orElse("").trim().toLowerCase(Locale.ROOT);
+        InputStream in;
+        switch (encoding) {
+            case "gzip":
+                in = new GZIPInputStream(new ByteArrayInputStream(bytes));
+                break;
+            case "deflate":
+                in = new InflaterInputStream(new ByteArrayInputStream(bytes));
+                break;
+            default:
+                return new String(bytes, StandardCharsets.UTF_8);
+        }
+        try (InputStream is = in) {
+            return new String(is.readAllBytes(), StandardCharsets.UTF_8);
+        }
+    }
+
+    private HttpRequest.Builder newRequest(String url) {
+        // okhttp used to add its own User-Agent when none was set; keep sending that by default
+        return HttpRequest.newBuilder(URI.create(url)).timeout(REQUEST_TIMEOUT).setHeader("User-Agent",
+                OKHTTP_USER_AGENT);
     }
 
     public String generateAPIKey(Instant timestamp, String accessToken) {
@@ -187,25 +276,27 @@ public class ApiBridge {
         }
     }
 
-    private Request buildRequest(Token token, final AbstractRequest req) {
+    private HttpRequest buildRequest(Token token, final AbstractRequest req) {
 
-        Request.Builder request = new Request.Builder().url(BASE_PATH_ACC + req.getRequestUrl());
+        HttpRequest.Builder request = newRequest(BASE_PATH_ACC + req.getRequestUrl());
 
         if (req.getMethod().equals("POST")) {
             final String reqJson = gson.toJson(req);
-            request = request.post(RequestBody.create(JSON, reqJson));
+            logger.trace("Request body: {}", reqJson);
+            request.POST(jsonBody(reqJson));
+        } else {
+            request.GET();
         }
 
         Instant timestamp = Instant.now();
 
         String formattedDate = dateTimeFormatter.format(timestamp);
-        request.addHeader("Accept-Encoding", "gzip, deflate").addHeader("Accept", "*/*")
-                .addHeader("User-Agent", "G-RAC").addHeader("Content-Type", "application/json;charset=utf-8")
-                .addHeader("x-app-name", "Comfort Cloud").addHeader("x-app-timestamp", formattedDate)
-                .addHeader("x-app-type", "1").addHeader("x-app-version", appVersion)
-                .addHeader("x-cfc-api-key", generateAPIKey(timestamp, token.getAccessToken()))
-                .addHeader("x-user-authorization-v2", "Bearer " + token.getAccessToken())
-                .addHeader("x-client-id", token.getClientId()).build();
+        request.header("Accept-Encoding", "gzip, deflate").header("Accept", "*/*").setHeader("User-Agent", "G-RAC")
+                .header("Content-Type", "application/json;charset=utf-8").header("x-app-name", "Comfort Cloud")
+                .header("x-app-timestamp", formattedDate).header("x-app-type", "1").header("x-app-version", appVersion)
+                .header("x-cfc-api-key", generateAPIKey(timestamp, token.getAccessToken()))
+                .header("x-user-authorization-v2", "Bearer " + token.getAccessToken())
+                .header("x-client-id", token.getClientId());
 
         return request.build();
     }
@@ -241,11 +332,9 @@ public class ApiBridge {
         }
     }
 
-    private String getQueryStringParameterFromHeaderEntryUrl(Response response, String headerEntry,
+    private @Nullable String getQueryStringParameterFromHeaderEntryUrl(HttpResponse<?> response, String headerEntry,
             String queryStringParameter) {
-        String location = response.header(headerEntry);
-        HttpUrl redirectUrl = HttpUrl.parse("https://www.example.com/" + location);
-        return redirectUrl.queryParameter(queryStringParameter);
+        return getQueryParameter(response.headers().firstValue(headerEntry).orElse(null), queryStringParameter);
     }
 
     private Token doV2AuthorizationFlow() throws IOException, NoSuchAlgorithmException, CommunicationException {
@@ -259,22 +348,25 @@ public class ApiBridge {
         String codeVerifier = generateRandomString(43);
         String codeChallenge = generateHash(codeVerifier);
 
-        HttpUrl url = new HttpUrl.Builder().scheme("https").host("authglb.digital.panasonic.com")
-                .addPathSegments("/authorize")
-                .addQueryParameter("scope", "openid offline_access comfortcloud.control a2w.control")
-                .addQueryParameter("audience", "https://digital.panasonic.com/" + APP_CLIENT_ID + "/api/v1/")
-                .addQueryParameter("protocol", "oauth2").addQueryParameter("response_type", "code")
-                .addQueryParameter("code_challenge", codeChallenge).addQueryParameter("code_challenge_method", "S256")
-                .addQueryParameter("auth0Client", AUTH_0_CLIENT).addQueryParameter("client_id", APP_CLIENT_ID)
-                .addQueryParameter("redirect_uri", REDIRECT_URI).addQueryParameter("state", state).build();
+        Map<String, String> authorizeParams = new LinkedHashMap<>();
+        authorizeParams.put("scope", "openid offline_access comfortcloud.control a2w.control");
+        authorizeParams.put("audience", "https://digital.panasonic.com/" + APP_CLIENT_ID + "/api/v1/");
+        authorizeParams.put("protocol", "oauth2");
+        authorizeParams.put("response_type", "code");
+        authorizeParams.put("code_challenge", codeChallenge);
+        authorizeParams.put("code_challenge_method", "S256");
+        authorizeParams.put("auth0Client", AUTH_0_CLIENT);
+        authorizeParams.put("client_id", APP_CLIENT_ID);
+        authorizeParams.put("redirect_uri", REDIRECT_URI);
+        authorizeParams.put("state", state);
 
-        Request authorizeRequest = new Request.Builder().get().url(url).addHeader("user-agent", "okhttp/4.10.0")
-                .build();
+        HttpRequest authorizeRequest = newRequest(buildUrl(BASE_PATH_AUTH + "/authorize", authorizeParams)).GET()
+                .setHeader("User-Agent", OKHTTP_USER_AGENT).build();
 
-        Response authorizeResponse = client.newCall(authorizeRequest).execute();
+        HttpResponse<String> authorizeResponse = execute(authorizeRequest);
 
-        if (authorizeResponse.code() != 302) {
-            throw new CommunicationException("Authorize request failed with code " + authorizeResponse.code()
+        if (authorizeResponse.statusCode() != 302) {
+            throw new CommunicationException("Authorize request failed with code " + authorizeResponse.statusCode()
                     + ". Check credentials and appVersion");
         }
 
@@ -282,13 +374,14 @@ public class ApiBridge {
         // FOLLOW REDIRECT
         // -------------------------------------------------------------------
 
-        String location = authorizeResponse.header("Location");
+        String location = authorizeResponse.headers().firstValue("Location").orElse(null);
+        if (location == null) {
+            throw new CommunicationException("Authorize response did not contain a Location header");
+        }
         state = getQueryStringParameterFromHeaderEntryUrl(authorizeResponse, "Location", "state");
 
         if (!location.startsWith(REDIRECT_URI)) {
-            HttpUrl redirectUrl = HttpUrl.parse(BASE_PATH_AUTH + "/" + location);
-
-            Response redirectResponse = client.newCall(new Request.Builder().get().url(redirectUrl).build()).execute();
+            HttpResponse<String> redirectResponse = execute(newRequest(resolveAuthUrl(location)).GET().build());
             Map<String, String> cookies = parseCookies(redirectResponse);
             String csrf = cookies.get("_csrf");
 
@@ -296,9 +389,9 @@ public class ApiBridge {
                 throw new CommunicationException("Expected cookie _csrf not found");
             }
 
-            if (redirectResponse.code() != 200) {
-                throw new CommunicationException("Follow Redirect request failed with code " + redirectResponse.code()
-                        + ". Check credentials and appVersion");
+            if (redirectResponse.statusCode() != 200) {
+                throw new CommunicationException("Follow Redirect request failed with code "
+                        + redirectResponse.statusCode() + ". Check credentials and appVersion");
             }
 
             // -------------------------------------------------------------------
@@ -319,13 +412,13 @@ public class ApiBridge {
             loginJson.lang = "en";
             loginJson.connection = "PanasonicID-Authentication";
 
-            Request.Builder loginRequest = new Request.Builder().url(BASE_PATH_AUTH + "/usernamepassword/login")
-                    .addHeader("user-agent", "okhttp/4.10.0").addHeader("Auth0-Client", AUTH_0_CLIENT)
-                    .post(RequestBody.create(MediaType.parse("application/json"), gson.toJson(loginJson)));
-            Response loginResponse = client.newCall(loginRequest.build()).execute();
+            HttpRequest loginRequest = newRequest(BASE_PATH_AUTH + "/usernamepassword/login")
+                    .setHeader("User-Agent", OKHTTP_USER_AGENT).header("Auth0-Client", AUTH_0_CLIENT)
+                    .header("Content-Type", "application/json").POST(jsonBody(gson.toJson(loginJson))).build();
+            HttpResponse<String> loginResponse = execute(loginRequest);
 
-            if (loginResponse.code() != 200) {
-                throw new CommunicationException("Login request failed with code " + loginResponse.code()
+            if (loginResponse.statusCode() != 200) {
+                throw new CommunicationException("Login request failed with code " + loginResponse.statusCode()
                         + ". Check credentials and appVersion");
             }
 
@@ -333,22 +426,21 @@ public class ApiBridge {
             // CALLBACK
             // -------------------------------------------------------------------
 
-            Document loginForm = Jsoup.parse(loginResponse.body().string());
+            Document loginForm = Jsoup.parse(loginResponse.body());
             Elements elements = loginForm.selectXpath("//input[@type='hidden']");
 
-            FormBody.Builder requestBody = new FormBody.Builder();
+            Map<String, String> formParams = new LinkedHashMap<>();
             for (int i = 0; i < elements.size(); i++) {
-                requestBody.add(elements.get(i).attr("name"), elements.get(i).attr("value"));
+                formParams.put(elements.get(i).attr("name"), elements.get(i).attr("value"));
             }
 
-            Request submitFormRequest = new Request.Builder().url(BASE_PATH_AUTH + "/login/callback").addHeader(
-                    "User-Agent",
-                    "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Mobile Safari/537.36")
-                    .addHeader("Content-Type", "application/x-www-form-urlencoded").post(requestBody.build()).build();
-            Response submitFormResponse = client.newCall(submitFormRequest).execute();
+            HttpRequest submitFormRequest = newRequest(BASE_PATH_AUTH + "/login/callback")
+                    .setHeader("User-Agent", BROWSER_USER_AGENT).header("Content-Type", APPLICATION_FORM_URLENCODED)
+                    .POST(formBody(formParams)).build();
+            HttpResponse<String> submitFormResponse = execute(submitFormRequest);
 
-            if (submitFormResponse.code() != 302) {
-                throw new CommunicationException("Callback request failed with code " + submitFormResponse.code()
+            if (submitFormResponse.statusCode() != 302) {
+                throw new CommunicationException("Callback request failed with code " + submitFormResponse.statusCode()
                         + ". Check credentials and appVersion");
             }
 
@@ -356,13 +448,15 @@ public class ApiBridge {
             // FOLLOW REDIRECT
             // ------------------------------------------------------------------
 
-            String newLocation = submitFormResponse.header("Location");
-            Request followRedirectRequest = new Request.Builder().url(BASE_PATH_AUTH + "/" + newLocation).build();
-            authorizeResponse = client.newCall(followRedirectRequest).execute();
+            String newLocation = submitFormResponse.headers().firstValue("Location").orElse(null);
+            if (newLocation == null) {
+                throw new CommunicationException("Callback response did not contain a Location header");
+            }
+            authorizeResponse = execute(newRequest(resolveAuthUrl(newLocation)).GET().build());
 
-            if (authorizeResponse.code() != 302) {
-                throw new CommunicationException("Follow Redirect request failed with code " + authorizeResponse.code()
-                        + ". Check credentials and appVersion");
+            if (authorizeResponse.statusCode() != 302) {
+                throw new CommunicationException("Follow Redirect request failed with code "
+                        + authorizeResponse.statusCode() + ". Check credentials and appVersion");
             }
         }
 
@@ -373,20 +467,30 @@ public class ApiBridge {
         String code = getQueryStringParameterFromHeaderEntryUrl(authorizeResponse, "Location", "code");
         Instant now = Instant.now();
 
-        Request getTokenRequest = new Request.Builder().url(BASE_PATH_AUTH + "/oauth/token")
-                .addHeader("User-Agent", "okhttp/4.10.0").addHeader("Auth0-Client", AUTH_0_CLIENT)
-                .post(new FormBody.Builder().add("scope", "openid").add("client_id", APP_CLIENT_ID)
-                        .add("grant_type", "authorization_code").add("code", code).add("redirect_uri", REDIRECT_URI)
-                        .add("code_verifier", codeVerifier).build())
-                .build();
-        Response getTokenResponse = client.newCall(getTokenRequest).execute();
+        if (code == null) {
+            throw new CommunicationException(
+                    "Authorization code not found in redirect. Check credentials and appVersion");
+        }
 
-        if (getTokenResponse.code() != 200) {
-            throw new CommunicationException("Get token request failed with code " + authorizeResponse.code()
+        Map<String, String> tokenParams = new LinkedHashMap<>();
+        tokenParams.put("scope", "openid");
+        tokenParams.put("client_id", APP_CLIENT_ID);
+        tokenParams.put("grant_type", "authorization_code");
+        tokenParams.put("code", code);
+        tokenParams.put("redirect_uri", REDIRECT_URI);
+        tokenParams.put("code_verifier", codeVerifier);
+
+        HttpRequest getTokenRequest = newRequest(BASE_PATH_AUTH + "/oauth/token")
+                .setHeader("User-Agent", OKHTTP_USER_AGENT).header("Auth0-Client", AUTH_0_CLIENT)
+                .header("Content-Type", APPLICATION_FORM_URLENCODED).POST(formBody(tokenParams)).build();
+        HttpResponse<String> getTokenResponse = execute(getTokenRequest);
+
+        if (getTokenResponse.statusCode() != 200) {
+            throw new CommunicationException("Get token request failed with code " + getTokenResponse.statusCode()
                     + ". Check credentials and appVersion");
         }
 
-        String tokenResponse = getTokenResponse.body().string();
+        String tokenResponse = getTokenResponse.body();
         JsonObject tokenResponseObject = gson.fromJson(tokenResponse, JsonObject.class);
         String accessToken = tokenResponseObject.get("access_token").getAsString();
 
@@ -394,23 +498,20 @@ public class ApiBridge {
         // RETRIEVE ACC_CLIENT_ID
         // ------------------------------------------------------------------
 
-        RequestBody body = RequestBody.create(MediaType.parse("application/json;charset=utf-8"),
-                gson.toJson(new GetAccClientIdDTO()));
-
         String formattedDate = dateTimeFormatter.format(now);
-        Request getAccClientIdRequest = new Request.Builder().post(body).url(BASE_PATH_ACC + "/auth/v2/login")
-                .addHeader("Accept-Encoding", "gzip, deflate").addHeader("Accept", "*/*")
-                .addHeader("User-Agent", "G-RAC").addHeader("Content-Type", "application/json;charset=utf-8")
-                .addHeader("x-app-name", "Comfort Cloud").addHeader("x-app-timestamp", formattedDate)
-                .addHeader("x-app-type", "1").addHeader("x-app-version", appVersion)
-                .addHeader("x-cfc-api-key", generateAPIKey(now, accessToken))
-                .addHeader("x-user-authorization-v2", "Bearer " + accessToken).build();
+        HttpRequest getAccClientIdRequest = newRequest(BASE_PATH_ACC + "/auth/v2/login")
+                .POST(jsonBody(gson.toJson(new GetAccClientIdDTO()))).header("Accept-Encoding", "gzip, deflate")
+                .header("Accept", "*/*").setHeader("User-Agent", "G-RAC")
+                .header("Content-Type", "application/json;charset=utf-8").header("x-app-name", "Comfort Cloud")
+                .header("x-app-timestamp", formattedDate).header("x-app-type", "1").header("x-app-version", appVersion)
+                .header("x-cfc-api-key", generateAPIKey(now, accessToken))
+                .header("x-user-authorization-v2", "Bearer " + accessToken).build();
 
-        Response getAccClientResponse = client.newCall(getAccClientIdRequest).execute();
+        HttpResponse<String> getAccClientResponse = execute(getAccClientIdRequest);
 
-        if (getAccClientResponse.code() != 200) {
+        if (getAccClientResponse.statusCode() != 200) {
 
-            final JsonObject o = JsonParser.parseString(getAccClientResponse.body().string()).getAsJsonObject();
+            final JsonObject o = JsonParser.parseString(getAccClientResponse.body()).getAsJsonObject();
             int errorCode = o.has("code") ? o.get("code").getAsInt() : -1;
             String errorMessage = o.has("message") ? o.get("message").getAsString() : "<not provided>";
 
@@ -419,12 +520,13 @@ public class ApiBridge {
                         "New app version published - check the version number of your mobile app and enter the value as account config parameter (currently using %s)",
                         appVersion));
             } else {
-                throw new CommunicationException("Get clientId request failed with code " + getAccClientResponse.code()
-                        + " and message " + errorMessage + ". Check credentials and appVersion");
+                throw new CommunicationException(
+                        "Get clientId request failed with code " + getAccClientResponse.statusCode() + " and message "
+                                + errorMessage + ". Check credentials and appVersion");
             }
         }
 
-        String bodyString = getAccClientResponse.body().string();
+        String bodyString = getAccClientResponse.body();
 
         JsonObject jsonObject = gson.fromJson(bodyString, JsonObject.class);
         clientId = jsonObject.get("clientId").getAsString();
@@ -440,20 +542,23 @@ public class ApiBridge {
     }
 
     private Token refreshToken(Token currentToken) throws IOException, CommunicationException {
-        Request getTokenRequest = new Request.Builder().url(BASE_PATH_AUTH + "/oauth/token")
-                .addHeader("User-Agent", "okhttp/4.10.0").addHeader("Auth0-Client", AUTH_0_CLIENT)
-                .post(new FormBody.Builder().add("scope", currentToken.getScope()).add("client_id", APP_CLIENT_ID)
-                        .add("refresh_token", currentToken.getRefreshToken()).add("grant_type", "refresh_token")
-                        .build())
-                .build();
-        Response getTokenResponse = client.newCall(getTokenRequest).execute();
+        Map<String, String> refreshParams = new LinkedHashMap<>();
+        refreshParams.put("scope", currentToken.getScope());
+        refreshParams.put("client_id", APP_CLIENT_ID);
+        refreshParams.put("refresh_token", currentToken.getRefreshToken());
+        refreshParams.put("grant_type", "refresh_token");
 
-        if (getTokenResponse.code() != 200) {
-            throw new CommunicationException("Refresh token request failed with code " + getTokenResponse.code()
+        HttpRequest getTokenRequest = newRequest(BASE_PATH_AUTH + "/oauth/token")
+                .setHeader("User-Agent", OKHTTP_USER_AGENT).header("Auth0-Client", AUTH_0_CLIENT)
+                .header("Content-Type", APPLICATION_FORM_URLENCODED).POST(formBody(refreshParams)).build();
+        HttpResponse<String> getTokenResponse = execute(getTokenRequest);
+
+        if (getTokenResponse.statusCode() != 200) {
+            throw new CommunicationException("Refresh token request failed with code " + getTokenResponse.statusCode()
                     + ". Check credentials and appVersion");
         }
 
-        String tokenResponse = getTokenResponse.body().string();
+        String tokenResponse = getTokenResponse.body();
         JsonObject tokenResponseObject = gson.fromJson(tokenResponse, JsonObject.class);
 
         Token refreshedToken = new Token(tokenResponseObject.get("access_token").getAsString(),
@@ -465,12 +570,11 @@ public class ApiBridge {
     }
 
     String getAppVersion() {
-        Request request = new Request.Builder().url(ITUNES_APP_VERSION_URL).get().addHeader("User-Agent",
-                "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Mobile Safari/537.36")
+        HttpRequest request = newRequest(ITUNES_APP_VERSION_URL).GET().setHeader("User-Agent", BROWSER_USER_AGENT)
                 .build();
 
-        try (Response response = client.newCall(request).execute()) {
-            return parseItunesAppVersion(response.body().string());
+        try {
+            return parseItunesAppVersion(execute(request).body());
         } catch (Exception e) {
             logger.warn("Exception getting appVersion", e);
         }
@@ -489,12 +593,13 @@ public class ApiBridge {
         return null;
     }
 
-    public <T> T sendRequestInternal(final Request request, final AbstractRequest req, final Type responseType)
+    public <T> T sendRequestInternal(final HttpRequest request, final AbstractRequest req, final Type responseType)
             throws PanasonicComfortCloudException {
 
-        try (Response response = client.newCall(request).execute()) {
-            if (response.code() == 200) {
-                final JsonObject o = JsonParser.parseString(response.body().string()).getAsJsonObject();
+        try {
+            HttpResponse<String> response = execute(request);
+            if (response.statusCode() == 200) {
+                final JsonObject o = JsonParser.parseString(response.body()).getAsJsonObject();
                 if (o.has("message")) {
                     throw new CommunicationException(req, o.get("message").getAsString());
                 } else {
@@ -502,13 +607,12 @@ public class ApiBridge {
                     if (responseJson != null) {
                         return responseJson;
                     } else {
-                        throw new CommunicationException(
-                                "Unable to unmarshal response from API: " + response.body().string());
+                        throw new CommunicationException("Unable to unmarshal response from API: " + response.body());
                     }
                 }
 
-            } else if (response.code() != 200) {
-                final JsonObject o = JsonParser.parseString(response.body().string()).getAsJsonObject();
+            } else {
+                final JsonObject o = JsonParser.parseString(response.body()).getAsJsonObject();
                 int errorCode = o.has("code") ? o.get("code").getAsInt() : -1;
                 String errorMessage = o.has("message") ? o.get("message").getAsString() : "<not provided>";
 
@@ -520,9 +624,6 @@ public class ApiBridge {
                     throw new CommunicationException(
                             String.format("Request failed: code %d, message %s", errorCode, errorMessage));
                 }
-            } else {
-                throw new CommunicationException("Error sending request to server. Server responded with "
-                        + response.code() + " and payload " + response.body().string());
             }
         } catch (Exception e) {
             throw new CommunicationException("General error communicating with service: " + e);
@@ -563,6 +664,70 @@ public class ApiBridge {
         storage.remove(CLIENT_ID_KEY);
         storage.remove(TOKEN_EXPIRY_KEY);
         storage.remove(SCOPE_KEY);
+    }
+
+    /**
+     * Resolve a Location header value against the auth base path. Kept compatible with the previous behaviour of
+     * prefixing relative locations with the auth base path.
+     */
+    static String resolveAuthUrl(String location) {
+        if (location.startsWith("http://") || location.startsWith("https://")) {
+            return location;
+        }
+        return BASE_PATH_AUTH + (location.startsWith("/") ? "" : "/") + location;
+    }
+
+    /**
+     * Response wrapper exposing a decoded (decompressed) String body while delegating everything else.
+     */
+    private static class StringHttpResponse implements HttpResponse<String> {
+        private final HttpResponse<byte[]> delegate;
+        private final String body;
+
+        StringHttpResponse(HttpResponse<byte[]> delegate, String body) {
+            this.delegate = delegate;
+            this.body = body;
+        }
+
+        @Override
+        public int statusCode() {
+            return delegate.statusCode();
+        }
+
+        @Override
+        public HttpRequest request() {
+            return delegate.request();
+        }
+
+        @Override
+        public Optional<HttpResponse<String>> previousResponse() {
+            return Optional.empty();
+        }
+
+        @Override
+        public java.net.http.HttpHeaders headers() {
+            return delegate.headers();
+        }
+
+        @Override
+        public String body() {
+            return body;
+        }
+
+        @Override
+        public Optional<javax.net.ssl.SSLSession> sslSession() {
+            return delegate.sslSession();
+        }
+
+        @Override
+        public URI uri() {
+            return delegate.uri();
+        }
+
+        @Override
+        public HttpClient.Version version() {
+            return delegate.version();
+        }
     }
 
     private static class Token {

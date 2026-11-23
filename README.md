@@ -7,6 +7,32 @@ It does *not* support the Aquarea line.
 
 [<img src="https://github.com/seime/support-me/blob/main/beer_me.png" width=150>](https://buymeacoffee.com/arnes)
 
+## Installation
+
+Copy the jar file
+https://github.com/seime/openhab-panasoniccomfortcloud/releases/latest/download/no.seime.openhab.binding.panasoniccomfortcloud.jar
+into your `addons` folder (see [Releases](#releases) for other versions).
+
+## Releases
+
+Every change to `master` is built and published as a
+[GitHub release](https://github.com/seime/openhab-panasoniccomfortcloud/releases) for openHAB 4.0 and newer (including
+5.x), named after the bundle version, e.g. `4.1.0.202611231545`. The newest one is marked *Latest*. Older ones are kept
+for 90 days (the newest 5 are always kept), so you can pin or roll back to a specific build.
+
+Each release contains the same jar under two names: `no.seime.openhab.binding.panasoniccomfortcloud-<version>.jar` and
+`no.seime.openhab.binding.panasoniccomfortcloud.jar`. The second one gives a permanent link to the newest build:
+https://github.com/seime/openhab-panasoniccomfortcloud/releases/latest/download/no.seime.openhab.binding.panasoniccomfortcloud.jar
+
+The release name is the same as the version openHAB reports, so you can find the release you are running with
+`bundle:list | grep Panasonic` in the openHAB console:
+
+```
+253 │ Active │  80 │ 4.1.0.202611231545 │ Seime Add-ons :: Bundles :: Panasonic Comfort Cloud Binding
+```
+
+Builds for openHAB 3.x are no longer published.
+
 
 ## Supported Things
 

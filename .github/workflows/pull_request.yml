@@ -5,7 +5,7 @@ on:
     branches: [ "*" ]
   push:
     branches-ignore:
-    - "master"
+      - master
 
 jobs:
   build_oh3:
@@ -13,42 +13,61 @@ jobs:
       fail-fast: false
       matrix:
         java: [ '11' ]
-        os: [ 'ubuntu-latest' ]
+        os: [ ubuntu-latest ]
+
     name: Build OH3 (Java ${{ matrix.java }}, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    steps:
-    - uses: actions/checkout@v4
-    - name: Set up JDK ${{ matrix.java }}
-      uses: actions/setup-java@v4
-      with:
-        java-version: ${{matrix.java}}
-        distribution: 'temurin'
-        cache: 'maven'
 
-    - name: Downgrade version
-      run: mvn versions:set -DnewVersion=3.4.4-SNAPSHOT
-    - name: Downgrade parent version
-      run: mvn versions:update-parent -DskipResolution=true -DparentVersion=3.4.4
-    - name: Build
-      # Compatibility build only - static code analysis runs in the OH4 build
-      run: mvn -P 'oh3' -P 'standalone' --batch-mode -DskipChecks -Doh.java.version=11 clean verify
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v6
+        with:
+          java-version: ${{ matrix.java }}
+          distribution: temurin
+          cache: maven
+
+      - name: Downgrade version
+        run: mvn versions:set -DnewVersion=3.4.4-SNAPSHOT
+
+      - name: Downgrade parent version
+        run: mvn versions:update-parent -DskipResolution=true -DparentVersion=3.4.4
+
+      - name: Build
+        # Compatibility build only - static code analysis runs in the OH4 build. -Doh3 disables the bundle-timestamp
+        # profile, which relies on the openHAB 4+ parent.
+        run: >
+          mvn -P oh3 -P standalone
+          --batch-mode
+          -DskipChecks
+          -Doh3
+          -Doh.java.version=11
+          clean verify
 
   build_oh4:
     strategy:
       fail-fast: false
       matrix:
         java: [ '17' ]
-        os: [ 'ubuntu-latest' ]
+        os: [ ubuntu-latest ]
+
     name: Build OH4 (Java ${{ matrix.java }}, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    steps:
-    - uses: actions/checkout@v4
-    - name: Set up JDK ${{ matrix.java }}
-      uses: actions/setup-java@v4
-      with:
-        java-version: ${{matrix.java}}
-        distribution: 'temurin'
-        cache: 'maven'
 
-    - name: Build
-      run: mvn -P 'standalone' --batch-mode -Doh.java.version=17 clean verify
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v6
+        with:
+          java-version: ${{ matrix.java }}
+          distribution: temurin
+          cache: maven
+
+      - name: Build
+        run: >
+          mvn -P standalone
+          --batch-mode
+          -Doh.java.version=17
+          clean verify

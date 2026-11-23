@@ -81,6 +81,31 @@
         <activeByDefault>false</activeByDefault>
       </activation>
     </profile>
+    <profile>
+      <!-- Replace the SNAPSHOT qualifier in Bundle-Version with a UTC build timestamp (e.g. 4.1.0.202611231545),
+        matching openHAB snapshot bundles. The GitHub release workflow names versioned releases after it, so users can
+        map `bundle:list` output to a release. The Maven version / jar file name is unaffected.
+        Disabled with -Doh3: the openHAB 3.x parent has no oh.bndDefaults property, so the OH3 compatibility build
+        must keep the parent's bnd configuration. -->
+      <id>bundle-timestamp</id>
+      <activation>
+        <property>
+          <name>!oh3</name>
+        </property>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>biz.aQute.bnd</groupId>
+            <artifactId>bnd-maven-plugin</artifactId>
+            <configuration>
+              <bnd><![CDATA[${oh.bndDefaults}
+-snapshot: ${tstamp;yyyyMMddHHmm;UTC}]]></bnd>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
 
   </profiles>
 </project>

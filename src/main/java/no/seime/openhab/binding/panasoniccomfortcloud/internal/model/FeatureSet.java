@@ -37,9 +37,9 @@ public class FeatureSet {
         supportedOperationModes = new TreeSet<>();
         // Main operation mode
 
-        if (Boolean.TRUE.equals(dto.fanMode)) {
-            supportedOperationModes.add(OperationMode.FAN);
-        }
+        // The API's "fanMode" flag is unreliable: devices report false while fan-only mode works fine
+        // (see issue #5). The Home Assistant integration also always offers fan-only mode.
+        supportedOperationModes.add(OperationMode.FAN);
         if (Boolean.TRUE.equals(dto.dryMode)) {
             supportedOperationModes.add(OperationMode.DRY);
         }

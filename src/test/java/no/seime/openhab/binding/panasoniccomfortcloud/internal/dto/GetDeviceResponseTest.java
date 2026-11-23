@@ -17,6 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.lang.reflect.Type;
+import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 
@@ -25,6 +26,7 @@ import com.google.gson.reflect.TypeToken;
 import no.seime.openhab.binding.panasoniccomfortcloud.internal.BindingConstants;
 import no.seime.openhab.binding.panasoniccomfortcloud.internal.model.Device;
 import no.seime.openhab.binding.panasoniccomfortcloud.internal.model.Group;
+import no.seime.openhab.binding.panasoniccomfortcloud.internal.model.OperationMode;
 import no.seime.openhab.binding.panasoniccomfortcloud.internal.model.Parameters;
 
 /**
@@ -51,6 +53,27 @@ public class GetDeviceResponseTest extends AbstractSerializationDeserializationT
         sendRequestParameters.setTargetTemperature(22d);
         ParametersDTO parametersDTO = sendRequestParameters.toParametersDTO(device);
         assertEquals(1, parametersDTO.operate);
+
+        // API reports "fanMode": false, but fan-only mode is still supported
+        assertTrue(device.getFeatureSet().getSupportedOperationModes().contains(OperationMode.FAN));
+    }
+
+    @Test
+    public void testFanModeSupportedDespiteFlagFalse() throws IOException {
+        final Type type = new TypeToken<DeviceDTO>() {
+        }.getType();
+
+        final DeviceDTO rsp = wireHelper.deSerializeFromClasspathResource("/get_device_response_issue5.json", type);
+        Device device = new Device(new Group());
+        device.mergeFromDeviceDetails(rsp);
+
+        assertEquals(OperationMode.FAN, device.getCurrentParameters().getMode());
+        assertEquals(Set.of(OperationMode.AUTO, OperationMode.DRY, OperationMode.COOL, OperationMode.HEAT,
+                OperationMode.FAN), device.getFeatureSet().getSupportedOperationModes());
+
+        Parameters sendRequestParameters = device.createSendRequestParameters();
+        sendRequestParameters.setMode(OperationMode.FAN);
+        assertEquals(4, sendRequestParameters.toParametersDTO(device).operationMode);
     }
 
     @Test

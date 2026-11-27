@@ -42,4 +42,5 @@ public class BindingConstants {
     public static final String CHANNEL_ACTUAL_NANOE = "actualNanoe";
     public static final String DEVICE_TYPE_WIFI_DONGLE = "1";
     public static final String DEVICE_TYPE_WIFI_BUILTIN = "3";
+    public static final String DEVICE_TYPE_WIRED_CONTROLLER = "9";
 }

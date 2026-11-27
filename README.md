@@ -40,7 +40,7 @@ This binding supports Panasonic Air Conditioners/heat pumps that are connected t
 controlled via the Panasonic Comfort Cloud app.
 
 * `account` = Panasonic Comfort Cloud Account - the account bridge
-* `aircondition` = An air conditioner or WiFi dongle
+* `aircondition` = An air conditioner (built-in WiFi, WiFi dongle or wired controller such as CZ-RTC6WBLW2)
 
 ## Discovery
 

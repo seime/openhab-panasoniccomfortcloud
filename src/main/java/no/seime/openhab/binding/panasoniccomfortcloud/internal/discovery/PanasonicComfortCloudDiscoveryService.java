@@ -121,10 +121,11 @@ public class PanasonicComfortCloudDiscoveryService extends AbstractDiscoveryServ
     }
 
     @Nullable
-    private ThingTypeUID getThingType(Device device) {
+    static ThingTypeUID getThingType(Device device) {
         switch (device.getType()) {
             case BindingConstants.DEVICE_TYPE_WIFI_DONGLE:
             case BindingConstants.DEVICE_TYPE_WIFI_BUILTIN:
+            case BindingConstants.DEVICE_TYPE_WIRED_CONTROLLER:
                 return BindingConstants.THING_TYPE_AIRCONDITION;
 
             default:

@@ -36,4 +36,20 @@ public class GetGroupsResponseTest extends AbstractSerializationDeserializationT
         assertEquals(1, rsp.groupList.length);
         assertEquals(3, rsp.groupList[0].devices.length);
     }
+
+    @Test
+    public void testDeserializeWiredController() throws IOException {
+        final Type type = new TypeToken<GetGroupsResponse>() {
+        }.getType();
+
+        final GetGroupsResponse rsp = wireHelper
+                .deSerializeFromClasspathResource("/get_groups_response_wired_controller.json", type);
+
+        assertEquals(1, rsp.groupList.length);
+        assertEquals(1, rsp.groupList[0].devices.length);
+        DeviceDTO device = rsp.groupList[0].devices[0];
+        assertEquals("9", device.deviceType);
+        assertEquals("S-100PE4R", device.deviceModuleNumber);
+        assertEquals(18.0, device.parameters.temperatureSet);
+    }
 }

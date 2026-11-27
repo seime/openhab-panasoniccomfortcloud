@@ -13,8 +13,12 @@
 package no.seime.openhab.binding.panasoniccomfortcloud.internal.discovery;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import org.junit.jupiter.api.Test;
+
+import no.seime.openhab.binding.panasoniccomfortcloud.internal.BindingConstants;
+import no.seime.openhab.binding.panasoniccomfortcloud.internal.model.Device;
 
 /**
  * @author Arne Seime - Initial contribution
@@ -31,5 +35,22 @@ public class PanasonicComfortCloudDiscoveryServiceTest {
         assertEquals("A-B", PanasonicComfortCloudDiscoveryService.createCleanDeviceId("A-B"));
         assertEquals("a-b", PanasonicComfortCloudDiscoveryService.createCleanDeviceId("a-b"));
         assertEquals("1-2", PanasonicComfortCloudDiscoveryService.createCleanDeviceId("1-2"));
+    }
+
+    @Test
+    public void testThingTypeMapping() {
+        assertEquals(BindingConstants.THING_TYPE_AIRCONDITION,
+                PanasonicComfortCloudDiscoveryService.getThingType(device("1")));
+        assertEquals(BindingConstants.THING_TYPE_AIRCONDITION,
+                PanasonicComfortCloudDiscoveryService.getThingType(device("3")));
+        assertEquals(BindingConstants.THING_TYPE_AIRCONDITION,
+                PanasonicComfortCloudDiscoveryService.getThingType(device("9")));
+        assertNull(PanasonicComfortCloudDiscoveryService.getThingType(device("2")));
+    }
+
+    private static Device device(String type) {
+        Device device = new Device(null);
+        device.setType(type);
+        return device;
     }
 }

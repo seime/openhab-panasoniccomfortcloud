@@ -1,0 +1,50 @@
+{
+  "iaqStatus": {
+    "statusCode": 200
+  },
+  "uiFlg": false,
+  "groupCount": 1,
+  "groupList": [
+    {
+      "groupId": 1,
+      "groupName": "Home",
+      "pairingList": [],
+      "deviceList": [
+        {
+          "deviceGuid": "CZ-RTC6WBLW2+000000000000",
+          "deviceType": "9",
+          "deviceName": "Downstairs",
+          "permission": 3,
+          "temperatureUnit": 0,
+          "summerHouse": 0,
+          "nanoeStandAlone": true,
+          "autoMode": true,
+          "powerConsumptionFlg": true,
+          "modeAvlList": {
+            "autoMode": 1
+          },
+          "parameters": {
+            "operate": 1,
+            "operationMode": 2,
+            "temperatureSet": 18,
+            "fanSpeed": 5,
+            "fanAutoMode": 1,
+            "airSwingLR": 2,
+            "airSwingUD": 3,
+            "ecoFunctionData": 0,
+            "ecoMode": 0,
+            "ecoNavi": 0,
+            "nanoe": 2,
+            "iAuto": 0,
+            "airDirection": 3,
+            "lastSettingMode": 0,
+            "airQuality": 0
+          },
+          "deviceModuleNumber": "S-100PE4R",
+          "deviceHashGuid": "0000000000000000000000000000000000000000000000000000000000000000",
+          "adaptorModelNumber": "CZ-RTC6WBLW2"
+        }
+      ]
+    }
+  ]
+}

@@ -73,7 +73,7 @@ public class Device {
     }
 
     public void mergeFromDeviceDetails(DeviceDTO dto) {
-        this.featureSet = new FeatureSet(dto);
+        this.featureSet = new FeatureSet(dto, type);
 
         this.permission = dto.permission;
         this.summerhouse = dto.summerHouse;

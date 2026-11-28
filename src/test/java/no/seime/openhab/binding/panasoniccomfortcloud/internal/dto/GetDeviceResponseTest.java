@@ -24,7 +24,9 @@ import org.junit.jupiter.api.Test;
 import com.google.gson.reflect.TypeToken;
 
 import no.seime.openhab.binding.panasoniccomfortcloud.internal.BindingConstants;
+import no.seime.openhab.binding.panasoniccomfortcloud.internal.model.AirSwingUpDown;
 import no.seime.openhab.binding.panasoniccomfortcloud.internal.model.Device;
+import no.seime.openhab.binding.panasoniccomfortcloud.internal.model.EcoMode;
 import no.seime.openhab.binding.panasoniccomfortcloud.internal.model.Group;
 import no.seime.openhab.binding.panasoniccomfortcloud.internal.model.OperationMode;
 import no.seime.openhab.binding.panasoniccomfortcloud.internal.model.Parameters;
@@ -101,5 +103,41 @@ public class GetDeviceResponseTest extends AbstractSerializationDeserializationT
         Device device = new Device(new Group());
         device.setType(BindingConstants.DEVICE_TYPE_WIFI_DONGLE);
         device.mergeFromDeviceDetails(rsp);
+    }
+
+    @Test
+    public void testWiredControllerIgnoresAdvertisedEcoAndSwingModes() throws IOException {
+        final Type type = new TypeToken<DeviceDTO>() {
+        }.getType();
+
+        // Issue #7: CZ-RTC6WBLW2 reports quietMode/powerfulMode/airSwingLR true but supports none of them
+        final DeviceDTO rsp = wireHelper.deSerializeFromClasspathResource("/get_device_response_wired_controller.json",
+                type);
+        Device device = new Device(new Group());
+        device.setType(BindingConstants.DEVICE_TYPE_WIRED_CONTROLLER);
+        device.mergeFromDeviceDetails(rsp);
+
+        assertEquals(Set.of(EcoMode.AUTO), device.getFeatureSet().getSupportedEcoModes());
+        assertTrue(device.getFeatureSet().getSupportedSwingUpDownModes().isEmpty());
+        assertTrue(device.getFeatureSet().getSupportedSwingSidewayModes().isEmpty());
+        assertEquals(Set.of(OperationMode.AUTO, OperationMode.DRY, OperationMode.COOL, OperationMode.HEAT,
+                OperationMode.FAN), device.getFeatureSet().getSupportedOperationModes());
+        assertTrue(device.getFeatureSet().isNanoeStandAlone());
+    }
+
+    @Test
+    public void testSameFlagsHonouredForBuiltinWifi() throws IOException {
+        final Type type = new TypeToken<DeviceDTO>() {
+        }.getType();
+
+        final DeviceDTO rsp = wireHelper.deSerializeFromClasspathResource("/get_device_response_wired_controller.json",
+                type);
+        Device device = new Device(new Group());
+        device.setType(BindingConstants.DEVICE_TYPE_WIFI_BUILTIN);
+        device.mergeFromDeviceDetails(rsp);
+
+        assertEquals(Set.of(EcoMode.AUTO, EcoMode.POWERFUL, EcoMode.QUIET),
+                device.getFeatureSet().getSupportedEcoModes());
+        assertEquals(Set.of(AirSwingUpDown.values()), device.getFeatureSet().getSupportedSwingUpDownModes());
     }
 }

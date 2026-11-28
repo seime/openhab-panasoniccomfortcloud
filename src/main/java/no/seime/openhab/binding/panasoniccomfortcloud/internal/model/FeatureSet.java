@@ -16,6 +16,7 @@ import java.util.Arrays;
 import java.util.Set;
 import java.util.TreeSet;
 
+import no.seime.openhab.binding.panasoniccomfortcloud.internal.BindingConstants;
 import no.seime.openhab.binding.panasoniccomfortcloud.internal.dto.DeviceDTO;
 
 /**
@@ -33,7 +34,15 @@ public class FeatureSet {
     private boolean ecoNavi;
     private Integer ecoFunction;
 
-    public FeatureSet(DeviceDTO dto) {
+    /**
+     * @param dto device details from the deviceStatus endpoint
+     * @param deviceType device type from the group list (may be null if not yet known)
+     */
+    public FeatureSet(DeviceDTO dto, String deviceType) {
+        // Wired controllers (e.g. CZ-RTC6WBLW2 on ducted units) advertise quiet/powerful and swing support
+        // they do not have: quiet is rejected with error 5006, swing is silently ignored (see issue #7).
+        boolean wiredController = BindingConstants.DEVICE_TYPE_WIRED_CONTROLLER.equals(deviceType);
+
         supportedOperationModes = new TreeSet<>();
         // Main operation mode
 
@@ -56,29 +65,28 @@ public class FeatureSet {
         // Eco modes
         supportedEcoModes = new TreeSet<>();
         supportedEcoModes.add(EcoMode.AUTO);
-        if (Boolean.TRUE.equals(dto.powerfulMode)) {
+        if (!wiredController && Boolean.TRUE.equals(dto.powerfulMode)) {
             supportedEcoModes.add(EcoMode.POWERFUL);
         }
-        if (Boolean.TRUE.equals(dto.quietMode)) {
+        if (!wiredController && Boolean.TRUE.equals(dto.quietMode)) {
             supportedEcoModes.add(EcoMode.QUIET);
         }
 
         // Sideways swing modes
         supportedSwingSidewayModes = new TreeSet<>();
-        if (Boolean.TRUE.equals(dto.autoSwingUD)) { // Note: Seems to be switched with airSwingLR
+        if (!wiredController && Boolean.TRUE.equals(dto.autoSwingUD)) { // Note: Seems to be switched with airSwingLR
             supportedSwingSidewayModes.addAll(Arrays.asList(AirSwingSideways.values()));
         }
 
         // Up/down swing modes
         supportedAirSwingUpDownModes = new TreeSet<>();
-        if (Boolean.TRUE.equals(dto.airSwingLR)) { // Note: Seems to be switched with autoSwingUD
+        if (!wiredController && Boolean.TRUE.equals(dto.airSwingLR)) { // Note: Seems to be switched with autoSwingUD
             supportedAirSwingUpDownModes.addAll(Arrays.asList(AirSwingUpDown.values()));
         }
 
         iAutoX = dto.iAutoX != null && dto.iAutoX;
         nanoe = dto.nanoe != null && dto.nanoe;
         nanoeStandAlone = dto.nanoeStandAlone != null && dto.nanoeStandAlone;
-        iAutoX = dto.iAutoX != null && dto.iAutoX;
         ecoNavi = dto.ecoNavi != null && dto.ecoNavi;
         ecoFunction = (dto.ecoFunction == null) ? 0 : dto.ecoFunction;
     }
